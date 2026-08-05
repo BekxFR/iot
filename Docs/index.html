@@ -1,0 +1,2593 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inception-of-Things - Documentation technique</title>
+<meta name="description" content="Documentation technique complete du projet Inception-of-Things : Vagrant, K3s, K3d, Argo CD, GitLab. Notions, architecture, choix techniques et lexique.">
+<style>
+/* ============================================================
+   Tokens
+   ============================================================ */
+:root {
+  color-scheme: light dark;
+
+  --paper:      #f6f4ef;
+  --paper-2:    #fffdf9;
+  --ink:        #16181d;
+  --ink-2:      #3d424e;
+  --muted:      #6b7180;
+  --rule:       #ddd7cc;
+  --rule-soft:  #e9e4db;
+  --accent:     #4338ca;
+  --accent-2:   #6d5cf0;
+  --accent-bg:  #ece9fd;
+  --amber:      #a2570b;
+  --amber-bg:   #fbf0dd;
+  --teal:       #0f6f66;
+  --teal-bg:    #dcf1ed;
+  --rose:       #a72f4a;
+  --rose-bg:    #fbe6ea;
+  --code-bg:    #f0ece3;
+
+  --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.8125rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.375rem;
+  --text-2xl:  1.75rem;
+  --text-3xl:  2.25rem;
+  --text-hero: clamp(2.5rem, 1.4rem + 4vw, 4.75rem);
+
+  --space-sec: clamp(3rem, 2rem + 3vw, 5.5rem);
+  --measure:   72ch;
+  --sidebar:   17rem;
+
+  --dur: 200ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:     #0d0f14;
+    --paper-2:   #141822;
+    --ink:       #e9e7e2;
+    --ink-2:     #c2c6d0;
+    --muted:     #949bab;
+    --rule:      #262c39;
+    --rule-soft: #1c212b;
+    --accent:    #a5a2ff;
+    --accent-2:  #8b86f8;
+    --accent-bg: #1d1e35;
+    --amber:     #efb463;
+    --amber-bg:  #2a2113;
+    --teal:      #55d6c0;
+    --teal-bg:   #102a26;
+    --rose:      #ff8fa3;
+    --rose-bg:   #2d151c;
+    --code-bg:   #171c26;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:     #0d0f14;
+  --paper-2:   #141822;
+  --ink:       #e9e7e2;
+  --ink-2:     #c2c6d0;
+  --muted:     #949bab;
+  --rule:      #262c39;
+  --rule-soft: #1c212b;
+  --accent:    #a5a2ff;
+  --accent-2:  #8b86f8;
+  --accent-bg: #1d1e35;
+  --amber:     #efb463;
+  --amber-bg:  #2a2113;
+  --teal:      #55d6c0;
+  --teal-bg:   #102a26;
+  --rose:      #ff8fa3;
+  --rose-bg:   #2d151c;
+  --code-bg:   #171c26;
+}
+
+:root[data-theme="light"] {
+  --paper:      #f6f4ef;
+  --paper-2:    #fffdf9;
+  --ink:        #16181d;
+  --ink-2:      #3d424e;
+  --muted:      #6b7180;
+  --rule:       #ddd7cc;
+  --rule-soft:  #e9e4db;
+  --accent:     #4338ca;
+  --accent-2:   #6d5cf0;
+  --accent-bg:  #ece9fd;
+  --amber:      #a2570b;
+  --amber-bg:   #fbf0dd;
+  --teal:       #0f6f66;
+  --teal-bg:    #dcf1ed;
+  --rose:       #a72f4a;
+  --rose-bg:    #fbe6ea;
+  --code-bg:    #f0ece3;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; letter-spacing: -0.015em; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+code, kbd, samp { font-family: var(--font-mono); font-size: 0.875em; }
+
+p code, li code, td code, dd code {
+  background: var(--code-bg);
+  border: 1px solid var(--rule-soft);
+  border-radius: 3px;
+  padding: 0.08em 0.32em;
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute; left: -9999px;
+  background: var(--accent); color: #fff;
+  padding: 0.6rem 1rem; z-index: 100; border-radius: 0 0 4px 0;
+}
+.skip:focus { left: 0; top: 0; }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero {
+  position: relative;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+  padding: clamp(3rem, 2rem + 6vw, 7rem) 1.5rem clamp(2.5rem, 2rem + 3vw, 4rem);
+}
+
+/* Trame blueprint : deux grilles superposees, tres basse opacite */
+.hero::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, var(--rule) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rule) 1px, transparent 1px),
+    linear-gradient(to right, var(--rule-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rule-soft) 1px, transparent 1px);
+  background-size: 8rem 8rem, 8rem 8rem, 1rem 1rem, 1rem 1rem;
+  opacity: 0.5;
+  mask-image: radial-gradient(ellipse 90% 80% at 30% 0%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 30% 0%, #000 20%, transparent 78%);
+  pointer-events: none;
+}
+
+.hero-inner { position: relative; max-width: 68rem; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 1.25rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.eyebrow::after {
+  content: ""; flex: 1; height: 1px; background: var(--rule); max-width: 12rem;
+}
+
+.hero h1 {
+  font-size: var(--text-hero);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.03em;
+}
+.hero h1 .thin { font-style: italic; font-weight: 400; color: var(--muted); }
+
+.hero .lede {
+  font-size: clamp(1.05rem, 1rem + 0.4vw, 1.3rem);
+  color: var(--ink-2);
+  max-width: 54ch;
+  margin: 1.25rem 0 2rem;
+}
+
+.hero-meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 2rem;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--muted);
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+}
+.hero-meta b { color: var(--ink-2); font-weight: 500; }
+
+.stack {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  margin: 0 0 2rem; padding: 0; list-style: none;
+}
+.stack li {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  border: 1px solid var(--rule); border-radius: 999px;
+  padding: 0.25rem 0.7rem; color: var(--ink-2); background: var(--paper);
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.shell {
+  max-width: 84rem; margin: 0 auto;
+  display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  gap: clamp(2rem, 1rem + 3vw, 4.5rem);
+  padding: 0 1.5rem 6rem;
+}
+
+.index {
+  position: sticky; top: 0; align-self: start;
+  max-height: 100vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 2.5rem 0.5rem 3rem 0;
+  font-size: var(--text-sm);
+  scrollbar-width: thin;
+}
+.index h2 {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--muted); margin: 0 0 1rem; font-weight: 500;
+}
+.index ol { list-style: none; margin: 0; padding: 0; counter-reset: idx; }
+.index li { counter-increment: idx; }
+.index ol a {
+  display: block; padding: 0.3rem 0 0.3rem 2rem;
+  color: var(--ink-2); text-decoration: none;
+  border-left: 2px solid var(--rule-soft);
+  position: relative;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.index ol a::before {
+  content: counter(idx, decimal-leading-zero);
+  position: absolute; left: 0.6rem;
+  font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--muted); opacity: 0.7;
+}
+.index ol a:hover { color: var(--accent); }
+.index ol a[aria-current="true"] {
+  color: var(--accent); font-weight: 600;
+  border-left-color: var(--accent);
+}
+.index ol a[aria-current="true"]::before { color: var(--accent); opacity: 1; }
+
+.index .tools {
+  margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+.btn {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  background: transparent; color: var(--ink-2);
+  border: 1px solid var(--rule); border-radius: 4px;
+  padding: 0.45rem 0.7rem; cursor: pointer; text-align: left;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+main { padding-top: 2.5rem; min-width: 0; }
+
+/* ============================================================
+   Sections
+   ============================================================ */
+.sec {
+  scroll-margin-top: 1.5rem;
+  padding-bottom: var(--space-sec);
+}
+.sec > * { max-width: var(--measure); }
+.sec > .wide, .sec > figure, .sec > .tablewrap { max-width: none; }
+
+.sec > h2 {
+  font-size: var(--text-3xl);
+  margin: 0 0 1.5rem;
+  padding-top: 1.75rem;
+  border-top: 2px solid var(--ink);
+  display: flex; align-items: baseline; gap: 1rem;
+  max-width: none;
+}
+.sec > h2 .num {
+  font-family: var(--font-mono); font-size: 0.85rem; font-weight: 500;
+  color: var(--accent); letter-spacing: 0.1em;
+  flex: none; padding-top: 0.35rem;
+}
+
+.sec h3 {
+  font-size: var(--text-xl); margin: 2.5rem 0 0.75rem;
+  color: var(--ink);
+}
+.sec h4 {
+  font-size: var(--text-lg); margin: 1.75rem 0 0.5rem;
+  font-family: var(--font-body); font-weight: 600;
+}
+.sec p { margin: 0 0 1rem; }
+.sec ul, .sec ol { margin: 0 0 1.25rem; padding-left: 1.35rem; }
+.sec li { margin-bottom: 0.4rem; }
+.sec li::marker { color: var(--muted); }
+
+.lead {
+  font-size: var(--text-lg); color: var(--ink-2);
+  border-left: 3px solid var(--accent); padding-left: 1.25rem;
+  margin-bottom: 2rem !important;
+}
+
+/* ============================================================
+   Callouts
+   ============================================================ */
+.box {
+  border: 1px solid var(--rule); border-left-width: 3px;
+  border-radius: 0 6px 6px 0;
+  padding: 1.1rem 1.25rem; margin: 1.5rem 0;
+  background: var(--paper-2);
+}
+.box > :first-child { margin-top: 0; }
+.box > :last-child { margin-bottom: 0; }
+.box .tag {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 0.5rem; font-weight: 600;
+}
+.box.req      { border-left-color: var(--accent); background: var(--accent-bg); }
+.box.req .tag { color: var(--accent); }
+.box.warn     { border-left-color: var(--amber); background: var(--amber-bg); }
+.box.warn .tag{ color: var(--amber); }
+.box.ok       { border-left-color: var(--teal); background: var(--teal-bg); }
+.box.ok .tag  { color: var(--teal); }
+.box.err      { border-left-color: var(--rose); background: var(--rose-bg); }
+.box.err .tag { color: var(--rose); }
+.box.req p    { font-style: italic; }
+.box.req p.src { font-style: normal; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); }
+
+/* ============================================================
+   Code
+   ============================================================ */
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule-soft);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: var(--text-sm); line-height: 1.6;
+  margin: 1.25rem 0;
+}
+pre code { background: none; border: 0; padding: 0; white-space: pre; font-size: inherit; }
+.codeblock { margin: 1.25rem 0; }
+.codeblock pre { margin: 0; border-radius: 0 0 6px 6px; border-top: 0; }
+.codeblock .fname {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--muted); background: var(--paper-2);
+  border: 1px solid var(--rule-soft); border-bottom: 0;
+  border-radius: 6px 6px 0 0; padding: 0.4rem 0.8rem;
+  display: flex; justify-content: space-between; gap: 1rem;
+}
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.tablewrap { overflow-x: auto; margin: 1.5rem 0; border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+th, td { text-align: left; padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+thead th {
+  background: var(--paper-2); color: var(--muted);
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500;
+  border-bottom: 1px solid var(--rule);
+  position: sticky; top: 0;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--paper-2); }
+td code { white-space: nowrap; }
+
+/* ============================================================
+   Figures / SVG
+   ============================================================ */
+figure { margin: 2rem 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption {
+  font-size: var(--text-sm); color: var(--muted);
+  margin-top: 0.75rem; padding-left: 0.9rem;
+  border-left: 2px solid var(--rule);
+}
+.diagram { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 1.25rem; overflow-x: auto; }
+.d-box  { fill: var(--paper); stroke: var(--rule); stroke-width: 1.5; }
+.d-box-a{ fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+.d-box-t{ fill: var(--teal-bg); stroke: var(--teal); stroke-width: 1.5; }
+.d-box-w{ fill: var(--amber-bg); stroke: var(--amber); stroke-width: 1.5; }
+.d-zone { fill: none; stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.d-t    { fill: var(--ink); font-family: var(--font-body); font-size: 13px; }
+.d-t.sm { font-size: 11px; fill: var(--ink-2); }
+.d-t.mono { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+.d-t.hd { font-weight: 600; }
+.d-t.mid{ text-anchor: middle; }
+.d-line { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.d-line.acc { stroke: var(--accent); stroke-width: 2; }
+.d-line.dash { stroke-dasharray: 5 4; }
+.d-arrow { fill: var(--muted); }
+.d-arrow.acc { fill: var(--accent); }
+
+/* ============================================================
+   Abbreviations + tooltips
+   ============================================================ */
+abbr[data-def] {
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  cursor: help;
+  position: relative;
+  color: inherit;
+}
+abbr[data-def]:hover, abbr[data-def]:focus-visible { color: var(--accent); }
+
+/* Position fixed : la bulle echappe aux conteneurs a overflow (tableaux, hero) */
+abbr[data-def] .tip {
+  position: fixed; top: 0; left: 0;
+  width: max-content; max-width: min(26rem, 78vw);
+  background: var(--ink); color: var(--paper);
+  border-radius: 6px; padding: 0.6rem 0.8rem;
+  font-family: var(--font-body); font-size: var(--text-sm);
+  font-style: normal; font-weight: 400; line-height: 1.5;
+  text-align: left; letter-spacing: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur) var(--ease), visibility var(--dur);
+  z-index: 40; pointer-events: none;
+  white-space: normal;
+}
+abbr[data-def] .tip b { display: block; font-family: var(--font-mono); font-size: var(--text-xs); opacity: 0.75; font-weight: 500; margin-bottom: 0.2rem; }
+abbr[data-def].open .tip { opacity: 1; visibility: visible; }
+abbr[data-unknown] { border-bottom-color: var(--rose); color: var(--rose); }
+
+/* ============================================================
+   Lexique
+   ============================================================ */
+.lex-controls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 1.5rem 0; max-width: none; }
+.lex-search {
+  flex: 1 1 16rem;
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--rule); border-radius: 5px;
+  background: var(--paper-2); color: var(--ink);
+}
+.lex-search::placeholder { color: var(--muted); }
+.chip {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  border: 1px solid var(--rule); border-radius: 999px;
+  padding: 0.3rem 0.75rem; background: transparent; color: var(--ink-2);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+#lex-list { display: grid; gap: 0; margin: 0; max-width: none; }
+.lex-item {
+  display: grid; grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  gap: 0 1.75rem;
+  padding: 1rem 0; border-top: 1px solid var(--rule-soft);
+  scroll-margin-top: 2rem;
+}
+.lex-item:first-child { border-top: 1px solid var(--rule); }
+.lex-item dt { min-width: 0; }
+.lex-item .term { font-family: var(--font-mono); font-weight: 600; color: var(--ink); font-size: 0.95rem; word-break: break-word; }
+.lex-item .full { display: block; font-size: var(--text-xs); color: var(--muted); margin-top: 0.15rem; }
+.lex-item .cat {
+  display: inline-block; margin-top: 0.4rem;
+  font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent); background: var(--accent-bg);
+  border-radius: 3px; padding: 0.1rem 0.4rem;
+}
+.lex-item dd { margin: 0; color: var(--ink-2); font-size: 0.95rem; }
+.lex-item.flash { background: var(--accent-bg); }
+.lex-empty { padding: 2rem 0; color: var(--muted); font-style: italic; }
+
+noscript .box { display: block; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 60rem) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding-bottom: 4rem; }
+  .index {
+    position: static; max-height: none; overflow: visible;
+    padding: 1.5rem 0 0; border-bottom: 1px solid var(--rule); margin-bottom: 1rem;
+  }
+  .index ol { columns: 2; column-gap: 1.5rem; }
+  .index .tools { flex-direction: row; flex-wrap: wrap; }
+  .lex-item { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
+
+/* Sequence de revelation, une seule fois, sur le hero */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { animation: rise 700ms var(--ease) backwards; }
+  .reveal:nth-child(1) { animation-delay: 40ms; }
+  .reveal:nth-child(2) { animation-delay: 120ms; }
+  .reveal:nth-child(3) { animation-delay: 200ms; }
+  .reveal:nth-child(4) { animation-delay: 280ms; }
+  .reveal:nth-child(5) { animation-delay: 360ms; }
+  @keyframes rise { from { opacity: 0; transform: translateY(0.75rem); } to { opacity: 1; transform: none; } }
+}
+
+@media print {
+  .index, .skip, .btn { display: none !important; }
+  .shell { display: block; padding: 0; }
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .sec { page-break-inside: auto; padding-bottom: 1.5rem; }
+  .sec > h2 { page-break-after: avoid; }
+  pre, figure, .box, .lex-item { page-break-inside: avoid; }
+  abbr[data-def] .tip { display: none; }
+  a { color: #000; }
+}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow reveal">42 / Inception-of-Things / v4.0</p>
+    <h1 class="reveal">Inception<span class="thin">-of-</span>Things</h1>
+    <p class="lede reveal">
+      Documentation technique du projet : les notions de virtualisation, de conteneurisation,
+      d'orchestration et de <abbr>GitOps</abbr> mises en oeuvre, l'architecture reellement deployee,
+      et la justification de chaque choix d'implementation.
+    </p>
+    <ul class="stack reveal">
+      <li>Vagrant</li><li>VirtualBox</li><li><abbr>K3s</abbr></li><li><abbr>K3d</abbr></li>
+      <li>Docker</li><li>Argo CD</li><li>Traefik</li><li>Helm</li><li>GitLab</li>
+    </ul>
+    <div class="hero-meta reveal">
+      <span><b>Depot</b> github.com/trobert42/iot</span>
+      <span><b>Parties</b> p1, p2, p3, bonus</span>
+      <span><b>Logins</b> chillion, trobert</span>
+      <span><b>Mis a jour</b> 2026-08-03</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+  <nav class="index" aria-label="Sommaire">
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#objectif">Objectif et lecture</a></li>
+      <li><a href="#vue">Vue d'ensemble</a></li>
+      <li><a href="#virtu">Virtualisation et conteneurs</a></li>
+      <li><a href="#vagrant">Vagrant</a></li>
+      <li><a href="#k8s">Kubernetes : architecture</a></li>
+      <li><a href="#objets">Les objets Kubernetes</a></li>
+      <li><a href="#reseau">Le reseau Kubernetes</a></li>
+      <li><a href="#k3s">K3s</a></li>
+      <li><a href="#k3d">K3d</a></li>
+      <li><a href="#gitops">GitOps et Argo CD</a></li>
+      <li><a href="#helm">Helm et GitLab</a></li>
+      <li><a href="#parties">Les quatre parties</a></li>
+      <li><a href="#choix">Choix techniques</a></li>
+      <li><a href="#runbook">Runbook</a></li>
+      <li><a href="#pannes">Depannage</a></li>
+      <li><a href="#lexique">Lexique</a></li>
+      <li><a href="#refs">References</a></li>
+    </ol>
+    <div class="tools">
+      <button class="btn" id="theme-toggle" type="button">Theme : auto</button>
+      <a class="btn" href="#lexique">Ouvrir le lexique</a>
+    </div>
+  </nav>
+
+  <main id="contenu">
+
+  <noscript>
+    <div class="box warn">
+      <span class="tag">JavaScript desactive</span>
+      <p>Les bulles d'information sur les acronymes et le lexique genere sont inactifs.
+      Le reste de la documentation reste entierement lisible.</p>
+    </div>
+  </noscript>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="objectif">
+    <h2><span class="num">01</span> Objectif et mode de lecture</h2>
+
+    <p class="lead">
+      Ce document a deux usages : comprendre les notions manipulees par le projet, et pouvoir
+      justifier en soutenance chaque element deploye.
+    </p>
+
+    <p>
+      Inception-of-Things est un projet d'administration systeme dont le but est de decouvrir
+      Kubernetes par la pratique, en montant progressivement quatre environnements. Le sujet impose
+      un resultat observable a chaque etape ; ce document explique <em>pourquoi</em> chaque brique
+      existe et <em>comment</em> elle est cablee ici.
+    </p>
+
+    <h3>Comment lire</h3>
+    <ul>
+      <li>Les sections 03 a 11 sont les <strong>notions</strong> : elles se lisent dans l'ordre, chacune
+        s'appuyant sur la precedente.</li>
+      <li>La section 12 decrit <strong>ce qui est reellement implemente</strong> dans chaque partie du depot.</li>
+      <li>La section 13 rassemble les <strong>choix techniques</strong> et leur justification : c'est la
+        section a relire avant la soutenance.</li>
+      <li>Les acronymes sont soulignes en pointilles : <abbr>API</abbr>, <abbr>CNI</abbr>,
+        <abbr>CRD</abbr>. Survolez-les (ou tabulez dessus) pour afficher leur signification ;
+        cliquez pour sauter a leur entree du <a href="#lexique">lexique</a>.</li>
+    </ul>
+
+    <div class="box req">
+      <span class="tag">Exigence du sujet</span>
+      <p>"The whole project has to be done in a virtual machine."</p>
+      <p>"You have to put all the configuration files of your project in folders located at the root
+      of your repository. The folders of the mandatory part will be named: p1, p2 and p3, and the
+      bonus one: bonus."</p>
+      <p class="src">iot.en.subject.pdf, chapitre III - General guidelines</p>
+    </div>
+
+    <p>
+      Toute la chaine tourne donc dans une machine virtuelle d'evaluation, qui heberge elle-meme
+      les machines virtuelles des parties 1 et 2 : c'est de la <abbr>virtualisation imbriquee</abbr>,
+      et c'est le premier prerequis a verifier sur le poste de correction.
+    </p>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="vue">
+    <h2><span class="num">02</span> Vue d'ensemble</h2>
+
+    <p class="lead">
+      Quatre environnements, une progression : d'abord un cluster nu, puis des applications
+      exposees, puis le deploiement automatise depuis Git, enfin la forge Git elle-meme dans le
+      cluster.
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 300" role="img" aria-labelledby="d1t">
+          <title id="d1t">Progression des quatre parties du projet</title>
+
+          <!-- p1 -->
+          <rect class="d-box-a" x="8" y="40" width="200" height="180" rx="6"/>
+          <text class="d-t hd" x="24" y="66">p1</text>
+          <text class="d-t sm" x="24" y="86">K3s + Vagrant</text>
+          <text class="d-t mono" x="24" y="112">2 VM</text>
+          <text class="d-t mono" x="24" y="130">server + agent</text>
+          <text class="d-t mono" x="24" y="148">192.168.56.110</text>
+          <text class="d-t mono" x="24" y="166">192.168.56.111</text>
+          <text class="d-t sm" x="24" y="196">Le cluster existe</text>
+
+          <!-- p2 -->
+          <rect class="d-box" x="236" y="40" width="200" height="180" rx="6"/>
+          <text class="d-t hd" x="252" y="66">p2</text>
+          <text class="d-t sm" x="252" y="86">K3s + 3 applications</text>
+          <text class="d-t mono" x="252" y="112">1 VM</text>
+          <text class="d-t mono" x="252" y="130">Ingress Traefik</text>
+          <text class="d-t mono" x="252" y="148">app1.com / app2.com</text>
+          <text class="d-t mono" x="252" y="166">app2 = 3 replicas</text>
+          <text class="d-t sm" x="252" y="196">Le cluster sert du trafic</text>
+
+          <!-- p3 -->
+          <rect class="d-box" x="464" y="40" width="200" height="180" rx="6"/>
+          <text class="d-t hd" x="480" y="66">p3</text>
+          <text class="d-t sm" x="480" y="86">K3d + Argo CD</text>
+          <text class="d-t mono" x="480" y="112">Docker, pas de VM</text>
+          <text class="d-t mono" x="480" y="130">ns argocd + dev</text>
+          <text class="d-t mono" x="480" y="148">source : GitHub</text>
+          <text class="d-t mono" x="480" y="166">v1 -&gt; v2</text>
+          <text class="d-t sm" x="480" y="196">Git pilote le cluster</text>
+
+          <!-- bonus -->
+          <rect class="d-box-t" x="692" y="40" width="200" height="180" rx="6"/>
+          <text class="d-t hd" x="708" y="66">bonus</text>
+          <text class="d-t sm" x="708" y="86">GitLab local</text>
+          <text class="d-t mono" x="708" y="112">ns gitlab</text>
+          <text class="d-t mono" x="708" y="130">chart Helm officiel</text>
+          <text class="d-t mono" x="708" y="148">source : GitLab</text>
+          <text class="d-t mono" x="708" y="166">interne au cluster</text>
+          <text class="d-t sm" x="708" y="196">La forge est dans le cluster</text>
+
+          <!-- fleches -->
+          <path class="d-line" d="M208 130 L232 130"/>
+          <polygon class="d-arrow" points="232,130 224,126 224,134"/>
+          <path class="d-line" d="M436 130 L460 130"/>
+          <polygon class="d-arrow" points="460,130 452,126 452,134"/>
+          <path class="d-line" d="M664 130 L688 130"/>
+          <polygon class="d-arrow" points="688,130 680,126 680,134"/>
+
+          <text class="d-t mono mid" x="450" y="266">chaque partie reutilise les acquis de la precedente</text>
+        </svg>
+      </div>
+      <figcaption>Progression pedagogique du sujet : le cluster, puis l'exposition, puis l'automatisation, puis l'autonomie complete.</figcaption>
+    </figure>
+
+    <h3>Ce que chaque partie demontre</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Partie</th><th>Outillage</th><th>Notion centrale</th><th>Preuve attendue en soutenance</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>p1</code></td>
+            <td>Vagrant, VirtualBox, <abbr>K3s</abbr></td>
+            <td>Cluster multi-noeuds, roles server et agent</td>
+            <td><code>kubectl get nodes</code> affiche 2 noeuds Ready</td>
+          </tr>
+          <tr>
+            <td><code>p2</code></td>
+            <td><abbr>K3s</abbr>, Traefik</td>
+            <td>Exposition <abbr>HTTP</abbr>, routage par en-tete Host, replicas</td>
+            <td><code>curl -H "Host: app1.com" 192.168.56.110</code></td>
+          </tr>
+          <tr>
+            <td><code>p3</code></td>
+            <td><abbr>K3d</abbr>, Docker, Argo CD</td>
+            <td><abbr>GitOps</abbr> : le depot Git est la source de verite</td>
+            <td>Changer v1 en v2 dans Git met a jour le cluster seul</td>
+          </tr>
+          <tr>
+            <td><code>bonus</code></td>
+            <td>Helm, GitLab</td>
+            <td>Chaine complete auto-hebergee</td>
+            <td>Meme demonstration, sans aucun service externe</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box warn">
+      <span class="tag">A retenir</span>
+      <p>
+        Les parties 1 et 2 utilisent des <strong>machines virtuelles</strong> pilotees par Vagrant.
+        Les parties 3 et bonus utilisent des <strong>conteneurs</strong> Docker : il n'y a plus de
+        machine virtuelle, le cluster tourne dans des conteneurs sur la machine d'evaluation.
+        C'est exactement la difference entre <abbr>K3s</abbr> et <abbr>K3d</abbr>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="virtu">
+    <h2><span class="num">03</span> Virtualisation et conteneurs</h2>
+
+    <p class="lead">
+      Deux facons d'isoler une charge de travail. Le projet utilise les deux, et il faut savoir
+      dire laquelle sert a quoi.
+    </p>
+
+    <h3>Machine virtuelle</h3>
+    <p>
+      Une <abbr>VM</abbr> est un ordinateur complet simule par logiciel : elle possede son propre
+      noyau, son propre systeme de fichiers, sa propre pile reseau. Le programme qui la fait tourner
+      s'appelle un <abbr>hyperviseur</abbr>. VirtualBox est un hyperviseur de type 2 : il s'execute
+      comme une application au-dessus d'un systeme d'exploitation hote, contrairement a un
+      hyperviseur de type 1 qui s'installe directement sur le materiel.
+    </p>
+    <p>
+      Pour etre efficace, un hyperviseur s'appuie sur des instructions du processeur dediees a la
+      virtualisation : <abbr>VT-x</abbr> chez Intel, <abbr>AMD-V</abbr> chez AMD. Quand la machine
+      hote est elle-meme une machine virtuelle, il faut que l'hyperviseur du dessus expose ces
+      instructions a son invite : c'est la <abbr>virtualisation imbriquee</abbr>.
+    </p>
+
+    <div class="box warn">
+      <span class="tag">Consequence pratique</span>
+      <p>
+        Le projet est evalue dans une <abbr>VM</abbr>, et les parties 1 et 2 lancent des
+        <abbr>VM</abbr> VirtualBox <em>a l'interieur</em> de celle-ci. Si la virtualisation imbriquee
+        n'est pas activee, <code>vagrant up</code> echoue. Le script <code>Tools/VM_commands.sh</code>
+        verifie la presence des drapeaux <code>vmx</code> ou <code>svm</code> dans
+        <code>/proc/cpuinfo</code> et l'annonce.
+      </p>
+    </div>
+
+    <h3>Conteneur</h3>
+    <p>
+      Un conteneur ne simule pas de machine : il <strong>partage le noyau de l'hote</strong> et se
+      contente d'isoler la vue qu'a un processus du systeme. Cette isolation repose sur deux
+      mecanismes du noyau Linux :
+    </p>
+    <ul>
+      <li><strong>namespaces</strong> : cloisonnent ce que le processus <em>voit</em> (arborescence de
+        fichiers, interfaces reseau, liste des processus, utilisateurs).</li>
+      <li><strong>cgroups</strong> : limitent ce que le processus <em>consomme</em>
+        (<abbr>CPU</abbr>, memoire, entrees-sorties).</li>
+    </ul>
+    <p>
+      Consequence : un conteneur demarre en une fraction de seconde et pese quelques dizaines de
+      megaoctets, la ou une <abbr>VM</abbr> demarre en dizaines de secondes et pese des gigaoctets.
+      En contrepartie, l'isolation est moins forte et tous les conteneurs d'une machine partagent le
+      meme noyau.
+    </p>
+
+    <h3>Image, conteneur, registre</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Terme</th><th>Definition</th><th>Dans le projet</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Image</strong></td>
+            <td>Modele immuable en couches, contenant le systeme de fichiers et la commande de demarrage.</td>
+            <td><code>wil42/playground:v1</code>, <code>nginx:alpine</code></td></tr>
+          <tr><td><strong>Tag</strong></td>
+            <td>Etiquette de version pointant sur une image precise. Changer le tag, c'est changer la version deployee.</td>
+            <td><code>v1</code> et <code>v2</code> : c'est le levier de la demonstration <abbr>GitOps</abbr></td></tr>
+          <tr><td><strong>Conteneur</strong></td>
+            <td>Instance en cours d'execution d'une image, avec sa couche d'ecriture propre.</td>
+            <td>Les processus des applications, les noeuds <abbr>K3d</abbr></td></tr>
+          <tr><td><strong>Registre</strong></td>
+            <td>Serveur qui stocke et distribue les images.</td>
+            <td>Docker Hub (<code>hub.docker.com/r/wil42/playground</code>)</td></tr>
+          <tr><td><strong><abbr>OCI</abbr></strong></td>
+            <td>Norme qui decrit le format des images et l'execution des conteneurs, pour qu'ils soient interoperables.</td>
+            <td>Garantit que la meme image tourne sous Docker et sous containerd</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Docker n'est qu'une des implementations possibles. Sous le capot, il delegue a
+      <abbr>containerd</abbr>, qui delegue lui-meme a <abbr>runc</abbr> pour creer effectivement les
+      namespaces et cgroups. Kubernetes n'utilise plus Docker directement : il parle a un
+      <em>runtime</em> conforme a l'interface <abbr>CRI</abbr>. <abbr>K3s</abbr> embarque
+      <abbr>containerd</abbr>.
+    </p>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="vagrant">
+    <h2><span class="num">04</span> Vagrant</h2>
+
+    <p class="lead">
+      Vagrant decrit une machine virtuelle dans un fichier texte versionne. C'est de
+      l'<abbr>IaC</abbr> appliquee au poste de developpement : la meme commande produit la meme
+      machine chez tout le monde.
+    </p>
+
+    <h3>Le vocabulaire</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Terme</th><th>Role</th><th>Dans p1 et p2</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Vagrantfile</strong></td>
+            <td>Fichier Ruby decrivant les machines, leurs ressources, leur reseau et leur provisionnement.</td>
+            <td><code>p1/Vagrantfile</code>, <code>p2/Vagrantfile</code></td></tr>
+          <tr><td><strong><abbr>box</abbr></strong></td>
+            <td>Image de base d'un systeme deja installe, telechargee depuis un catalogue public.</td>
+            <td><code>bento/ubuntu-26.04</code></td></tr>
+          <tr><td><strong><abbr>provider</abbr></strong></td>
+            <td>Moteur de virtualisation pilote par Vagrant.</td>
+            <td><code>virtualbox</code></td></tr>
+          <tr><td><strong><abbr>provisioner</abbr></strong></td>
+            <td>Etape executee dans la machine juste apres son premier demarrage.</td>
+            <td>Les scripts <code>scripts/install_k3s_*.sh</code></td></tr>
+          <tr><td><strong><abbr>synced folder</abbr></strong></td>
+            <td>Repertoire du projet monte automatiquement dans la machine, par defaut sur <code>/vagrant</code>.</td>
+            <td>Sert a lire les manifests et a transmettre le token du cluster</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Le reseau d'une VM Vagrant sous VirtualBox</h3>
+    <p>
+      Vagrant configure systematiquement une premiere interface en <abbr>NAT</abbr> : elle donne a la
+      machine un acces sortant vers Internet et sert au <abbr>SSH</abbr> de gestion. Une declaration
+      <code>private_network</code> ajoute une seconde interface, de type <em>host-only</em> : un
+      reseau prive entre l'hote et ses machines, sur lequel on peut fixer une adresse
+      <abbr>IP</abbr> stable.
+    </p>
+
+    <div class="box req">
+      <span class="tag">Exigence du sujet</span>
+      <p>"Have a dedicated IP on the primary network interface. The IP of the first machine (Server)
+      will be 192.168.56.110, and the IP of the second machine (ServerWorker) will be 192.168.56.111."</p>
+      <p class="src">iot.en.subject.pdf, IV.1 - Part 1: K3s and Vagrant</p>
+    </div>
+
+    <p>
+      VirtualBox restreint par defaut les reseaux host-only a la plage
+      <code>192.168.56.0/21</code> : les adresses imposees par le sujet tombent dans cette plage, il
+      n'y a donc rien a configurer. Cote invite, cette seconde interface porte un nom previsible
+      (<code>enp0s8</code> sur la plupart des distributions recentes), mais ce nom depend de la
+      <abbr>box</abbr>. Le projet ne le code donc pas en dur et le deduit de l'adresse
+      <abbr>IP</abbr>.
+    </p>
+
+    <div class="codeblock">
+      <div class="fname"><span>p1/scripts/install_k3s_server.sh</span><span>detection d'interface</span></div>
+<pre><code>IFACE=$(ip -o -4 addr show | awk -v ip="$NODE_IP" '$4 ~ "^"ip"/" {print $2; exit}')</code></pre>
+    </div>
+
+    <h3>Cycle de vie</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Commande</th><th>Effet</th></tr></thead>
+        <tbody>
+          <tr><td><code>vagrant up</code></td><td>Cree la machine si besoin, la demarre, puis execute les provisioners une seule fois.</td></tr>
+          <tr><td><code>vagrant halt</code></td><td>Eteint la machine sans la detruire.</td></tr>
+          <tr><td><code>vagrant destroy -f</code></td><td>Supprime la machine et son disque.</td></tr>
+          <tr><td><code>vagrant provision</code></td><td>Rejoue les provisioners sur une machine deja creee.</td></tr>
+          <tr><td><code>vagrant ssh &lt;nom&gt;</code></td><td>Ouvre une session dans la machine, sans mot de passe.</td></tr>
+          <tr><td><code>vagrant status</code></td><td>Etat des machines declarees dans le Vagrantfile courant.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Connexion sans mot de passe</h3>
+    <p>
+      Les <abbr>box</abbr> publiques embarquent toutes la meme paire de cles, dite <em>insecure</em>,
+      connue de tout le monde. Au premier demarrage, Vagrant genere une cle propre a la machine,
+      l'installe et revoque la cle publique par defaut. C'est ce comportement qui est conserve ici :
+      l'exigence "connect with SSH with no password" est satisfaite sans partager de secret entre
+      les machines.
+    </p>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="k8s">
+    <h2><span class="num">05</span> Kubernetes : architecture</h2>
+
+    <p class="lead">
+      Kubernetes est un orchestrateur : on lui decrit l'etat souhaite du systeme, il se charge de
+      l'atteindre et de le maintenir. Tout le reste decoule de ce principe.
+    </p>
+
+    <h3>Declaratif et boucle de reconciliation</h3>
+    <p>
+      On ne dit pas a Kubernetes "demarre trois conteneurs" mais "je veux trois replicas de cette
+      application". Cet etat souhaite est stocke dans la base du cluster. Des composants appeles
+      <em>controleurs</em> comparent en permanence l'etat observe a l'etat souhaite et agissent pour
+      combler l'ecart : c'est la <abbr>boucle de reconciliation</abbr>. Si un conteneur meurt, personne
+      ne le relance manuellement : le controleur constate qu'il manque un replica et en cree un.
+    </p>
+    <p>
+      Cette propriete est ce qui rend le <abbr>GitOps</abbr> possible (section 10) : il suffit de
+      brancher la source de l'etat souhaite sur un depot Git.
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 380" role="img" aria-labelledby="d2t">
+          <title id="d2t">Composants du plan de controle et d'un noeud Kubernetes</title>
+
+          <rect class="d-zone" x="8" y="30" width="420" height="320" rx="8"/>
+          <text class="d-t hd" x="26" y="56">Control plane (noeud server)</text>
+
+          <rect class="d-box-a" x="30" y="72" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="44" y="96">kube-apiserver</text>
+          <text class="d-t mono" x="44" y="113">porte d'entree unique</text>
+
+          <rect class="d-box" x="228" y="72" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="242" y="96">datastore</text>
+          <text class="d-t mono" x="242" y="113">etcd ou SQLite</text>
+
+          <rect class="d-box" x="30" y="142" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="44" y="166">scheduler</text>
+          <text class="d-t mono" x="44" y="183">place les pods</text>
+
+          <rect class="d-box" x="228" y="142" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="242" y="166">controller-manager</text>
+          <text class="d-t mono" x="242" y="183">boucles de controle</text>
+
+          <text class="d-t sm" x="30" y="232">Toute lecture et toute ecriture passent</text>
+          <text class="d-t sm" x="30" y="250">par l'API server : les autres composants</text>
+          <text class="d-t sm" x="30" y="268">ne se parlent jamais directement.</text>
+
+          <rect class="d-zone" x="470" y="30" width="422" height="320" rx="8"/>
+          <text class="d-t hd" x="488" y="56">Noeud (server et agent)</text>
+
+          <rect class="d-box-t" x="492" y="72" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="506" y="96">kubelet</text>
+          <text class="d-t mono" x="506" y="113">agent du noeud</text>
+
+          <rect class="d-box" x="690" y="72" width="180" height="52" rx="5"/>
+          <text class="d-t hd" x="704" y="96">kube-proxy</text>
+          <text class="d-t mono" x="704" y="113">regles de service</text>
+
+          <rect class="d-box" x="492" y="142" width="378" height="52" rx="5"/>
+          <text class="d-t hd" x="506" y="166">container runtime (containerd)</text>
+          <text class="d-t mono" x="506" y="183">cree et supervise les conteneurs</text>
+
+          <rect class="d-box" x="492" y="212" width="120" height="46" rx="5"/>
+          <text class="d-t mid" x="552" y="240">Pod</text>
+          <rect class="d-box" x="622" y="212" width="120" height="46" rx="5"/>
+          <text class="d-t mid" x="682" y="240">Pod</text>
+          <rect class="d-box" x="752" y="212" width="118" height="46" rx="5"/>
+          <text class="d-t mid" x="811" y="240">Pod</text>
+
+          <path class="d-line acc" d="M212 98 L226 98"/>
+          <polygon class="d-arrow acc" points="228,98 220,94 220,102"/>
+          <path class="d-line acc" d="M120 124 L120 142"/>
+          <polygon class="d-arrow acc" points="120,144 116,136 124,136"/>
+          <path class="d-line acc dash" d="M410 98 C 450 98, 452 98, 490 98"/>
+          <polygon class="d-arrow acc" points="492,98 484,94 484,102"/>
+          <text class="d-t mono" x="416" y="88">kubelet</text>
+          <text class="d-t mono" x="416" y="112">s'enregistre</text>
+
+          <path class="d-line" d="M582 124 L582 142"/>
+          <polygon class="d-arrow" points="582,144 578,136 586,136"/>
+          <path class="d-line" d="M680 194 L680 210"/>
+          <polygon class="d-arrow" points="680,212 676,204 684,204"/>
+        </svg>
+      </div>
+      <figcaption>Le plan de controle decide, le noeud execute. Dans <abbr>K3s</abbr> ces composants sont fusionnes dans un binaire unique.</figcaption>
+    </figure>
+
+    <h3>Les composants</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Composant</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>kube-apiserver</code></td>
+            <td>Expose l'<abbr>API</abbr> <abbr>REST</abbr> du cluster. Point d'entree unique : <code>kubectl</code>, les controleurs et les kubelets ne parlent qu'a lui.</td></tr>
+          <tr><td><code>etcd</code> / SQLite</td>
+            <td>Base de donnees cle-valeur qui stocke l'integralite de l'etat du cluster. <abbr>K3s</abbr> utilise SQLite par defaut via <abbr>kine</abbr>, et non <code>etcd</code>.</td></tr>
+          <tr><td><code>kube-scheduler</code></td>
+            <td>Choisit sur quel noeud placer chaque nouveau pod, selon les ressources disponibles et les contraintes.</td></tr>
+          <tr><td><code>kube-controller-manager</code></td>
+            <td>Regroupe les boucles de controle : maintien du nombre de replicas, gestion des noeuds, des endpoints, etc.</td></tr>
+          <tr><td><code>kubelet</code></td>
+            <td>Agent present sur chaque noeud. Recoit les pods a executer et pilote le runtime de conteneurs.</td></tr>
+          <tr><td><code>kube-proxy</code></td>
+            <td>Programme les regles reseau du noeud pour que l'adresse d'un Service atteigne les pods correspondants.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>kubectl et kubeconfig</h3>
+    <p>
+      <code>kubectl</code> est le client en ligne de commande. Il lit un fichier
+      <abbr>kubeconfig</abbr> qui contient l'adresse de l'<abbr>API</abbr> server, le certificat de
+      l'autorite du cluster et les identifiants du client. Par defaut il cherche
+      <code>~/.kube/config</code>, ou le chemin donne par la variable <code>KUBECONFIG</code>.
+    </p>
+    <p>
+      Dans p1 et p2, <abbr>K3s</abbr> ecrit ce fichier dans
+      <code>/etc/rancher/k3s/k3s.yaml</code> avec l'adresse <code>127.0.0.1</code>. Les scripts en
+      recopient une version pour l'utilisateur <code>vagrant</code> en remplacant cette adresse par
+      l'<abbr>IP</abbr> dediee du noeud, ce qui rend le fichier utilisable depuis l'hote.
+    </p>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="objets">
+    <h2><span class="num">06</span> Les objets Kubernetes</h2>
+
+    <p class="lead">
+      Tout est un objet decrit en <abbr>YAML</abbr>, envoye a l'<abbr>API</abbr> server, stocke, puis
+      reconcilie. Voici ceux que le projet manipule.
+    </p>
+
+    <h3>Anatomie d'un manifest</h3>
+    <p>
+      Quatre champs sont toujours presents : <code>apiVersion</code> (version de l'<abbr>API</abbr>),
+      <code>kind</code> (type d'objet), <code>metadata</code> (nom, namespace, labels) et
+      <code>spec</code> (l'etat souhaite). Kubernetes y ajoute un champ <code>status</code> qu'il
+      met a jour lui-meme.
+    </p>
+
+    <h3>Hierarchie de deploiement</h3>
+    <p>
+      On ne cree presque jamais un Pod directement. On declare un <strong>Deployment</strong>, qui
+      cree un <strong>ReplicaSet</strong>, qui cree les <strong>Pods</strong>. Cet empilement permet
+      les mises a jour progressives : lors d'un changement d'image, le Deployment cree un nouveau
+      ReplicaSet et transfere les replicas de l'ancien vers le nouveau.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Objet</th><th>Role</th><th>Utilisation dans le projet</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Namespace</strong></td>
+            <td>Cloisonnement logique des objets a l'interieur d'un meme cluster.</td>
+            <td><code>argocd</code>, <code>dev</code>, <code>gitlab</code>, <code>apps</code></td></tr>
+          <tr><td><strong>Pod</strong></td>
+            <td>Plus petite unite deployable : un ou plusieurs conteneurs partageant reseau et volumes.</td>
+            <td>Une instance de <code>wil42/playground</code> ou de <code>nginx</code></td></tr>
+          <tr><td><strong>ReplicaSet</strong></td>
+            <td>Maintient un nombre donne de pods identiques.</td>
+            <td>Cree implicitement par chaque Deployment</td></tr>
+          <tr><td><strong>Deployment</strong></td>
+            <td>Gere les ReplicaSets et les mises a jour progressives.</td>
+            <td><code>app1</code>, <code>app2</code> (3 replicas), <code>app3</code>, <code>wil-playground</code></td></tr>
+          <tr><td><strong>Service</strong></td>
+            <td>Adresse stable et repartition de charge vers un ensemble de pods selectionnes par label.</td>
+            <td><code>app1-service</code>, <code>wil-playground-service</code></td></tr>
+          <tr><td><strong>Ingress</strong></td>
+            <td>Regles de routage <abbr>HTTP</abbr> de l'exterieur vers des Services, par nom d'hote et par chemin.</td>
+            <td>Routage <code>app1.com</code>, <code>app2.com</code> et defaut</td></tr>
+          <tr><td><strong>IngressClass</strong></td>
+            <td>Designe quel controleur d'Ingress traite une regle donnee.</td>
+            <td><code>traefik</code>, declare via <code>spec.ingressClassName</code></td></tr>
+          <tr><td><strong>ConfigMap</strong></td>
+            <td>Donnees de configuration non sensibles, injectables en fichiers ou en variables.</td>
+            <td>Les pages <code>index.html</code> des trois applications de p2</td></tr>
+          <tr><td><strong>Secret</strong></td>
+            <td>Meme principe pour les donnees sensibles, encodees en base64 (et non chiffrees par defaut).</td>
+            <td>Mot de passe initial d'Argo CD, identifiants du depot GitLab</td></tr>
+          <tr><td><strong>StatefulSet</strong></td>
+            <td>Comme un Deployment, mais avec identite stable et stockage persistant par instance.</td>
+            <td><code>argocd-application-controller</code>, base de donnees de GitLab</td></tr>
+          <tr><td><strong>DaemonSet</strong></td>
+            <td>Garantit un pod par noeud.</td>
+            <td><abbr>klipper-lb</abbr>, qui publie les Services de type LoadBalancer</td></tr>
+          <tr><td><strong>Job</strong></td>
+            <td>Tache ponctuelle executee jusqu'a completion.</td>
+            <td>Migrations de base de donnees du chart GitLab</td></tr>
+          <tr><td><strong><abbr>CRD</abbr></strong></td>
+            <td>Definition d'un type d'objet ajoute a l'<abbr>API</abbr> par une application tierce.</td>
+            <td><code>Application</code>, le type apporte par Argo CD</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Labels et selecteurs</h3>
+    <p>
+      Les objets ne se referencent pas par leur nom mais par des <strong>labels</strong> : des
+      couples cle-valeur poses dans <code>metadata.labels</code>. Un Service declare un
+      <code>selector</code> et prend en charge tous les pods qui portent ces labels. C'est le seul
+      lien entre un Service et ses pods ; une faute de frappe dans un label produit un Service qui
+      ne renvoie rien, sans aucune erreur.
+    </p>
+
+    <div class="codeblock">
+      <div class="fname"><span>p3/confs/service.yaml</span><span>extrait</span></div>
+<pre><code>spec:
+  selector:
+    app: wil-playground   # doit correspondre au label des pods du Deployment
+  ports:
+    - port: 8888          # port du Service
+      targetPort: 8888    # port ecoute dans le conteneur</code></pre>
+    </div>
+
+    <h3>Les types de Service</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Type</th><th>Portee</th><th>Remarque</th></tr></thead>
+        <tbody>
+          <tr><td><code>ClusterIP</code></td><td>Interne au cluster uniquement.</td>
+            <td>Type par defaut, utilise partout dans le projet</td></tr>
+          <tr><td><code>NodePort</code></td><td>Ouvre le meme port sur tous les noeuds.</td>
+            <td>Plage <code>30000-32767</code>, non utilise ici</td></tr>
+          <tr><td><code>LoadBalancer</code></td><td>Demande une adresse externe a l'infrastructure.</td>
+            <td>Fourni par <abbr>klipper-lb</abbr> dans <abbr>K3s</abbr> ; occupe les ports 80 et 443 des noeuds pour Traefik</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="reseau">
+    <h2><span class="num">07</span> Le reseau Kubernetes</h2>
+
+    <p class="lead">
+      Le modele reseau de Kubernetes tient en une phrase : chaque pod recoit une adresse
+      <abbr>IP</abbr> unique et tous les pods peuvent se joindre directement, sans traduction
+      d'adresse.
+    </p>
+
+    <h3>Le CNI et flannel</h3>
+    <p>
+      Kubernetes ne sait pas faire de reseau : il delegue a un greffon conforme a l'interface
+      <abbr>CNI</abbr>. <abbr>K3s</abbr> embarque <abbr>flannel</abbr>, qui utilise par defaut
+      l'encapsulation <abbr>VXLAN</abbr> : les paquets destines a un pod situe sur un autre noeud
+      sont enveloppes dans des paquets <abbr>UDP</abbr> normaux, transportes par le reseau physique,
+      puis desencapsules a l'arrivee.
+    </p>
+    <p>
+      Il faut donc dire a flannel sur quelle interface parler. Sur une <abbr>VM</abbr> Vagrant il y a
+      au moins deux interfaces : celle de <abbr>NAT</abbr>, identique sur toutes les machines, et
+      celle du reseau prive. Si flannel choisit la mauvaise, les deux noeuds croient partager la
+      meme adresse et le trafic inter-noeuds ne fonctionne pas. D'ou le drapeau
+      <code>--flannel-iface</code>, alimente ici par l'interface deduite de l'<abbr>IP</abbr> du
+      noeud.
+    </p>
+
+    <h3>Les plages d'adresses</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Plage</th><th>Valeur par defaut dans K3s</th><th>Contenu</th></tr></thead>
+        <tbody>
+          <tr><td>Pod <abbr>CIDR</abbr></td><td><code>10.42.0.0/16</code></td><td>Adresses attribuees aux pods</td></tr>
+          <tr><td>Service <abbr>CIDR</abbr></td><td><code>10.43.0.0/16</code></td><td>Adresses virtuelles des Services</td></tr>
+          <tr><td><abbr>DNS</abbr> du cluster</td><td><code>10.43.0.10</code></td><td>Service CoreDNS</td></tr>
+          <tr><td>Reseau host-only</td><td><code>192.168.56.0/24</code></td><td>Reseau prive VirtualBox impose par le sujet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>La resolution de noms</h3>
+    <p>
+      <abbr>CoreDNS</abbr> donne a chaque Service un nom stable de la forme
+      <code>&lt;service&gt;.&lt;namespace&gt;.svc.cluster.local</code>. Un pod du namespace
+      <code>argocd</code> peut ainsi joindre GitLab dans le namespace <code>gitlab</code> sans
+      connaitre aucune adresse <abbr>IP</abbr> :
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>bonus/confs/application.yaml</span><span>repoURL interne</span></div>
+<pre><code>repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/root/iot-app.git</code></pre>
+    </div>
+    <p>
+      C'est ce qui rend le bonus reellement autonome : Argo CD ne sort jamais du cluster pour
+      recuperer ses manifests.
+    </p>
+
+    <h3>Service ou Ingress ?</h3>
+    <p>
+      Un Service travaille au niveau 4 (<abbr>TCP</abbr>) : il ne connait que des adresses et des
+      ports. Un <strong>Ingress</strong> travaille au niveau 7 (<abbr>HTTP</abbr>) : il lit l'en-tete
+      <code>Host</code> et le chemin de la requete pour choisir le Service de destination. C'est
+      exactement ce que demande la partie 2 : une seule adresse <abbr>IP</abbr>, trois applications,
+      differenciees par le nom d'hote.
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 340" role="img" aria-labelledby="d3t">
+          <title id="d3t">Routage par en-tete Host dans la partie 2</title>
+
+          <rect class="d-box" x="10" y="120" width="150" height="70" rx="6"/>
+          <text class="d-t hd" x="26" y="148">Client</text>
+          <text class="d-t mono" x="26" y="168">curl -H "Host: ..."</text>
+
+          <rect class="d-zone" x="210" y="20" width="680" height="300" rx="8"/>
+          <text class="d-t hd" x="228" y="46">VM chillionS - 192.168.56.110</text>
+
+          <rect class="d-box-a" x="240" y="120" width="150" height="70" rx="6"/>
+          <text class="d-t hd" x="256" y="148">Traefik</text>
+          <text class="d-t mono" x="256" y="168">Ingress controller</text>
+
+          <rect class="d-box" x="470" y="46" width="180" height="56" rx="5"/>
+          <text class="d-t" x="486" y="70">app1-service</text>
+          <text class="d-t mono" x="486" y="88">1 replica</text>
+
+          <rect class="d-box" x="470" y="128" width="180" height="56" rx="5"/>
+          <text class="d-t" x="486" y="152">app2-service</text>
+          <text class="d-t mono" x="486" y="170">3 replicas</text>
+
+          <rect class="d-box" x="470" y="210" width="180" height="56" rx="5"/>
+          <text class="d-t" x="486" y="234">app3-service</text>
+          <text class="d-t mono" x="486" y="252">defaut</text>
+
+          <rect class="d-box-t" x="700" y="46" width="60" height="56" rx="5"/>
+          <text class="d-t mid sm" x="730" y="80">pod</text>
+          <rect class="d-box-t" x="700" y="118" width="60" height="24" rx="4"/>
+          <rect class="d-box-t" x="700" y="146" width="60" height="24" rx="4"/>
+          <rect class="d-box-t" x="700" y="174" width="60" height="24" rx="4"/>
+          <rect class="d-box-t" x="700" y="210" width="60" height="56" rx="5"/>
+          <text class="d-t mid sm" x="730" y="244">pod</text>
+
+          <path class="d-line acc" d="M162 155 L236 155"/>
+          <polygon class="d-arrow acc" points="238,155 230,151 230,159"/>
+          <text class="d-t mono" x="168" y="146">:80</text>
+
+          <path class="d-line" d="M392 145 C 430 145, 432 74, 466 74"/>
+          <polygon class="d-arrow" points="468,74 460,70 460,78"/>
+          <text class="d-t mono" x="398" y="106">Host: app1.com</text>
+
+          <path class="d-line" d="M392 155 L466 156"/>
+          <polygon class="d-arrow" points="468,156 460,152 460,160"/>
+          <text class="d-t mono" x="398" y="150">Host: app2.com</text>
+
+          <path class="d-line" d="M392 168 C 430 168, 432 238, 466 238"/>
+          <polygon class="d-arrow" points="468,238 460,234 460,242"/>
+          <text class="d-t mono" x="398" y="216">tout le reste</text>
+
+          <path class="d-line" d="M652 74 L696 74"/>
+          <polygon class="d-arrow" points="698,74 690,70 690,78"/>
+          <path class="d-line" d="M652 156 L696 156"/>
+          <polygon class="d-arrow" points="698,156 690,152 690,160"/>
+          <path class="d-line" d="M652 238 L696 238"/>
+          <polygon class="d-arrow" points="698,238 690,234 690,242"/>
+
+          <text class="d-t mono" x="240" y="300">une seule IP, trois applications, distinguees au niveau HTTP</text>
+        </svg>
+      </div>
+      <figcaption>Traefik lit l'en-tete <code>Host</code> et selectionne le Service. La regle sans hote sert de defaut.</figcaption>
+    </figure>
+
+    <div class="box ok">
+      <span class="tag">Pourquoi la regle par defaut fonctionne</span>
+      <p>
+        Traefik attribue a chaque regle une priorite egale a la longueur de son expression. La regle
+        <code>Host(`app1.com`) &amp;&amp; PathPrefix(`/`)</code> est plus longue que
+        <code>PathPrefix(`/`)</code>, elle est donc evaluee en premier. La regle sans hote ne capte
+        que ce qui n'a matche aucune autre : elle joue naturellement le role de defaut demande par le
+        sujet pour <code>app3</code>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="k3s">
+    <h2><span class="num">08</span> K3s</h2>
+
+    <p class="lead">
+      <abbr>K3s</abbr> est une distribution Kubernetes certifiee, condensee dans un binaire unique,
+      concue pour les environnements contraints. C'est le meme Kubernetes, avec moins de pieces a
+      assembler.
+    </p>
+
+    <h3>Ce qui change par rapport a Kubernetes standard</h3>
+    <ul>
+      <li>Un seul binaire embarque l'<abbr>API</abbr> server, le scheduler, le controller-manager, le
+        kubelet, <abbr>containerd</abbr> et flannel.</li>
+      <li>Le stockage par defaut n'est pas <code>etcd</code> mais <strong>SQLite</strong>, via une
+        couche de traduction appelee <abbr>kine</abbr>. <code>etcd</code> n'apparait que dans la
+        configuration en <abbr>HA</abbr> a plusieurs serveurs.</li>
+      <li>Les greffons cloud et les fonctions historiques ou experimentales sont retires.</li>
+      <li>Des composants utiles sont pre-installes et se deploient automatiquement au demarrage.</li>
+    </ul>
+
+    <h3>Les composants installes d'office</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Composant</th><th>Role</th><th>Consequence dans le projet</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Traefik</strong></td><td>Controleur d'Ingress.</td>
+            <td>Aucune installation a faire en p2 et p3 : l'Ingress fonctionne d'emblee</td></tr>
+          <tr><td><strong>CoreDNS</strong></td><td>Serveur <abbr>DNS</abbr> interne.</td>
+            <td>Resolution des noms de Services</td></tr>
+          <tr><td><strong><abbr>klipper-lb</abbr></strong></td><td>Implementation minimale des Services LoadBalancer.</td>
+            <td>Publie Traefik sur les ports 80 et 443 des noeuds</td></tr>
+          <tr><td><strong>local-path-provisioner</strong></td><td>Stockage persistant sur le disque local du noeud.</td>
+            <td>Utilise par les composants de GitLab dans le bonus</td></tr>
+          <tr><td><strong>metrics-server</strong></td><td>Collecte <abbr>CPU</abbr> et memoire.</td>
+            <td>Alimente <code>kubectl top</code></td></tr>
+          <tr><td><strong>helm-controller</strong></td><td>Installe des charts Helm declares en <abbr>YAML</abbr>.</td>
+            <td>Mecanisme par lequel K3s deploie Traefik lui-meme</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Server et agent</h3>
+    <p>
+      Un noeud <strong>server</strong> execute le plan de controle et accepte aussi des charges de
+      travail. Un noeud <strong>agent</strong> n'execute que le kubelet et le runtime : il rejoint un
+      server existant et se contente de faire tourner des pods. C'est exactement la repartition
+      demandee par le sujet pour la partie 1.
+    </p>
+
+    <div class="box req">
+      <span class="tag">Exigence du sujet</span>
+      <p>"You must install K3s on both machines: in the first one (Server), it will be installed in
+      controller mode. In the second one (ServerWorker), in agent mode."</p>
+      <p class="src">iot.en.subject.pdf, IV.1 - Part 1: K3s and Vagrant</p>
+    </div>
+
+    <h3>Le node-token</h3>
+    <p>
+      Pour rejoindre un cluster, un agent doit prouver son identite avec un secret partage : le
+      <abbr>node-token</abbr>, genere par le server et depose dans
+      <code>/var/lib/rancher/k3s/server/node-token</code>. L'agent le fournit via la variable
+      <code>K3S_TOKEN</code>, avec l'adresse du server dans <code>K3S_URL</code>.
+    </p>
+    <p>
+      Toute la difficulte du provisionnement automatise tient a la transmission de ce secret d'une
+      machine a l'autre. Le projet le fait passer par le dossier synchronise, deja monte dans les
+      deux machines (voir <a href="#choix">section 13</a>).
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 300" role="img" aria-labelledby="d4t">
+          <title id="d4t">Transmission du node-token entre les deux machines de la partie 1</title>
+
+          <rect class="d-box-w" x="290" y="16" width="320" height="54" rx="6"/>
+          <text class="d-t hd mid" x="450" y="40">Hote : dossier du projet p1/</text>
+          <text class="d-t mono mid" x="450" y="58">confs/node-token (ignore par git)</text>
+
+          <rect class="d-box-a" x="20" y="140" width="330" height="130" rx="6"/>
+          <text class="d-t hd" x="40" y="168">chillionS - 192.168.56.110</text>
+          <text class="d-t sm" x="40" y="192">K3s server (controller)</text>
+          <text class="d-t mono" x="40" y="216">1. installe K3s</text>
+          <text class="d-t mono" x="40" y="234">2. genere le node-token</text>
+          <text class="d-t mono" x="40" y="252">3. le copie dans /vagrant/confs</text>
+
+          <rect class="d-box-t" x="550" y="140" width="330" height="130" rx="6"/>
+          <text class="d-t hd" x="570" y="168">chillionSW - 192.168.56.111</text>
+          <text class="d-t sm" x="570" y="192">K3s agent (worker)</text>
+          <text class="d-t mono" x="570" y="216">4. attend le fichier token</text>
+          <text class="d-t mono" x="570" y="234">5. attend l'API sur :6443</text>
+          <text class="d-t mono" x="570" y="252">6. rejoint le cluster</text>
+
+          <path class="d-line acc" d="M300 140 C 300 100, 340 70, 386 60"/>
+          <polygon class="d-arrow acc" points="392,58 383,56 385,64"/>
+          <text class="d-t mono" x="250" y="112">ecrit</text>
+
+          <path class="d-line acc dash" d="M600 140 C 600 100, 560 70, 514 60"/>
+          <polygon class="d-arrow acc" points="508,58 517,56 515,64"/>
+          <text class="d-t mono" x="610" y="112">lit</text>
+
+          <path class="d-line" d="M352 220 L546 220"/>
+          <polygon class="d-arrow" points="548,220 540,216 540,224"/>
+          <text class="d-t mono mid" x="450" y="212">jonction TLS sur 192.168.56.110:6443</text>
+        </svg>
+      </div>
+      <figcaption>Le dossier synchronise sert de canal de transmission : ni cle SSH partagee, ni secret ecrit dans le depot.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="k3d">
+    <h2><span class="num">09</span> K3d</h2>
+
+    <p class="lead">
+      <abbr>K3d</abbr> lance <abbr>K3s</abbr> dans des conteneurs Docker. Un cluster complet demarre
+      en quelques secondes, sans machine virtuelle.
+    </p>
+
+    <div class="box req">
+      <span class="tag">Exigence du sujet</span>
+      <p>"You now master a minimalist version of K3s! Time to set up everything you have just learnt
+      (and much more!) but without Vagrant this time. To begin, install K3d on your virtual machine."</p>
+      <p>"First of all, you must understand the difference between K3s and K3d."</p>
+      <p class="src">iot.en.subject.pdf, IV.3 - Part 3: K3d and Argo CD</p>
+    </div>
+
+    <h3>La difference, en une phrase</h3>
+    <p>
+      <abbr>K3s</abbr> est une <strong>distribution</strong> Kubernetes que l'on installe sur une
+      machine ; <abbr>K3d</abbr> est un <strong>outil</strong> qui cree des clusters
+      <abbr>K3s</abbr> dans des conteneurs Docker. K3d n'est pas une autre version de Kubernetes :
+      c'est un emballage de K3s pour le poste de developpement.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>K3s (p1, p2)</th><th>K3d (p3, bonus)</th></tr></thead>
+        <tbody>
+          <tr><td>Un noeud est</td><td>une machine virtuelle</td><td>un conteneur Docker</td></tr>
+          <tr><td>Prerequis</td><td>Vagrant + VirtualBox</td><td>Docker</td></tr>
+          <tr><td>Temps de creation</td><td>plusieurs minutes</td><td>quelques secondes</td></tr>
+          <tr><td>Acces reseau</td><td><abbr>IP</abbr> dediee sur le reseau host-only</td><td>publication de ports Docker vers <code>localhost</code></td></tr>
+          <tr><td>Isolation</td><td>noyau separe</td><td>noyau partage avec l'hote</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Ce que K3d cree</h3>
+    <ul>
+      <li><code>k3d-iot-cluster-server-0</code> : le noeud server.</li>
+      <li><code>k3d-iot-cluster-agent-0</code> et <code>-agent-1</code> : les noeuds agents.</li>
+      <li><code>k3d-iot-cluster-serverlb</code> : un conteneur proxy place devant les noeuds, qui
+        recoit les ports publies vers l'hote.</li>
+      <li>un reseau Docker dedie reliant le tout.</li>
+    </ul>
+
+    <h3>La publication de ports</h3>
+    <p>
+      C'est le point le plus souvent mal compris. La syntaxe
+      <code>--port "&lt;hote&gt;:&lt;interne&gt;@loadbalancer"</code> publie un port de la machine
+      hote sur le conteneur <code>serverlb</code>, lequel relaie vers <strong>le meme numero de
+      port</strong> sur les noeuds. Il faut donc que quelque chose ecoute reellement sur ce port du
+      noeud.
+    </p>
+
+    <div class="box err">
+      <span class="tag">Piege classique</span>
+      <p>
+        <code>--port "8888:8888@loadbalancer"</code> ne fonctionne pas ici : rien n'ecoute sur le
+        port 8888 des noeuds. Le Service de l'application est de type <code>ClusterIP</code>, donc
+        interne, et la plage des NodePort commence de toute facon a 30000. Le port publie est bien
+        ouvert sur l'hote, mais il ne mene nulle part.
+      </p>
+      <p>
+        La formulation correcte est <code>--port "8888:80@loadbalancer"</code> : le port 8888 de
+        l'hote est branche sur le port 80 des noeuds, ou Traefik ecoute deja. L'Ingress prend alors
+        le relais et route vers le Service sur son port 8888.
+      </p>
+    </div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 260" role="img" aria-labelledby="d5t">
+          <title id="d5t">Chemin d'une requete depuis localhost:8888 jusqu'au conteneur applicatif</title>
+
+          <rect class="d-box" x="8" y="90" width="140" height="66" rx="6"/>
+          <text class="d-t hd mid" x="78" y="118">navigateur</text>
+          <text class="d-t mono mid" x="78" y="138">localhost:8888</text>
+
+          <rect class="d-box-a" x="188" y="90" width="140" height="66" rx="6"/>
+          <text class="d-t hd mid" x="258" y="114">serverlb</text>
+          <text class="d-t mono mid" x="258" y="132">conteneur k3d</text>
+          <text class="d-t mono mid" x="258" y="148">8888 -&gt; :80</text>
+
+          <rect class="d-box-t" x="368" y="90" width="140" height="66" rx="6"/>
+          <text class="d-t hd mid" x="438" y="114">Traefik</text>
+          <text class="d-t mono mid" x="438" y="132">noeud :80</text>
+          <text class="d-t mono mid" x="438" y="148">lit l'Ingress</text>
+
+          <rect class="d-box" x="548" y="90" width="140" height="66" rx="6"/>
+          <text class="d-t hd mid" x="618" y="118">Service</text>
+          <text class="d-t mono mid" x="618" y="138">ClusterIP :8888</text>
+
+          <rect class="d-box" x="728" y="90" width="164" height="66" rx="6"/>
+          <text class="d-t hd mid" x="810" y="114">Pod</text>
+          <text class="d-t mono mid" x="810" y="132">wil42/playground</text>
+          <text class="d-t mono mid" x="810" y="148">conteneur :8888</text>
+
+          <path class="d-line acc" d="M150 123 L184 123"/><polygon class="d-arrow acc" points="186,123 178,119 178,127"/>
+          <path class="d-line acc" d="M330 123 L364 123"/><polygon class="d-arrow acc" points="366,123 358,119 358,127"/>
+          <path class="d-line acc" d="M510 123 L544 123"/><polygon class="d-arrow acc" points="546,123 538,119 538,127"/>
+          <path class="d-line acc" d="M690 123 L724 123"/><polygon class="d-arrow acc" points="726,123 718,119 718,127"/>
+
+          <text class="d-t mono mid" x="450" y="212">publication Docker, puis routage HTTP, puis selection par label</text>
+        </svg>
+      </div>
+      <figcaption>Quatre traductions successives separent <code>localhost:8888</code> du processus applicatif.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="gitops">
+    <h2><span class="num">10</span> GitOps et Argo CD</h2>
+
+    <p class="lead">
+      Le <abbr>GitOps</abbr> pousse la logique declarative de Kubernetes jusqu'au bout : l'etat
+      souhaite n'est plus dans les mains d'un operateur, il est dans un depot Git, et un agent se
+      charge en permanence de faire converger le cluster vers ce contenu.
+    </p>
+
+    <h3>Les quatre principes</h3>
+    <ol>
+      <li><strong>Declaratif</strong> : tout le systeme est decrit par des fichiers, pas par des commandes.</li>
+      <li><strong>Versionne</strong> : ces fichiers vivent dans Git, avec historique, revue et retour arriere.</li>
+      <li><strong>Applique automatiquement</strong> : un agent lit le depot et applique les changements, sans intervention.</li>
+      <li><strong>Reconcilie en continu</strong> : l'agent surveille l'ecart entre le depot et le cluster, et le corrige.</li>
+    </ol>
+
+    <h3>Modele pull contre modele push</h3>
+    <p>
+      Dans une chaine <abbr>CI/CD</abbr> classique, le serveur d'integration <em>pousse</em> vers le
+      cluster : il faut lui confier des identifiants d'administration du cluster. En
+      <abbr>GitOps</abbr>, l'agent vit <em>dans</em> le cluster et <em>tire</em> depuis le depot. Le
+      cluster n'expose rien vers l'exterieur et aucun secret d'acces ne sort. C'est plus sur, et cela
+      permet la reconciliation permanente.
+    </p>
+
+    <h3>La derive et l'auto-reparation</h3>
+    <p>
+      On appelle <abbr>drift</abbr> l'ecart entre l'etat decrit dans Git et l'etat reel du cluster :
+      quelqu'un modifie une ressource a la main, un objet est supprime par erreur. Deux options de
+      synchronisation traitent ce cas :
+    </p>
+    <ul>
+      <li><code>selfHeal: true</code> : toute modification faite directement sur le cluster est
+        annulee et remplacee par le contenu du depot.</li>
+      <li><code>prune: true</code> : une ressource supprimee du depot est supprimee du cluster.
+        Sans cette option, elle survivrait indefiniment.</li>
+    </ul>
+
+    <h3>Les composants d'Argo CD</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Composant</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>argocd-server</code></td><td>Sert l'<abbr>API</abbr> et l'interface web. Ecoute en <abbr>HTTPS</abbr> sur le port 443 du Service.</td></tr>
+          <tr><td><code>argocd-repo-server</code></td><td>Clone les depots Git et produit les manifests finaux (<abbr>YAML</abbr> brut, Helm ou Kustomize).</td></tr>
+          <tr><td><code>argocd-application-controller</code></td><td>Coeur du systeme : compare l'etat souhaite a l'etat reel et applique les differences. Deploye en StatefulSet.</td></tr>
+          <tr><td><code>argocd-redis</code></td><td>Cache des manifests et des etats calcules.</td></tr>
+          <tr><td><code>argocd-dex-server</code></td><td>Delegation d'authentification vers un fournisseur externe. Non utilise ici.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>L'objet Application</h3>
+    <p>
+      Argo CD ajoute a l'<abbr>API</abbr> Kubernetes un type d'objet via une <abbr>CRD</abbr> :
+      <code>Application</code>. Cet objet est la seule chose que le projet applique a la main ; tout
+      le reste en decoule.
+    </p>
+
+    <div class="codeblock">
+      <div class="fname"><span>p3/confs/application.yaml</span><span>annote</span></div>
+<pre><code>apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wil-playground-app
+  namespace: argocd              # l'Application vit dans le namespace d'Argo CD
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/BekxFR/trobert-iot-argocd-app.git
+    targetRevision: HEAD         # branche par defaut du depot
+    path: .                      # repertoire des manifests dans le depot
+  destination:
+    server: https://kubernetes.default.svc   # le cluster local
+    namespace: dev               # ou deployer
+  syncPolicy:
+    automated:
+      prune: true                # supprime ce qui disparait du depot
+      selfHeal: true             # annule les modifications manuelles
+    syncOptions:
+      - CreateNamespace=true     # cree le namespace s'il manque</code></pre>
+    </div>
+
+    <div class="box warn">
+      <span class="tag">Point de vigilance</span>
+      <p>
+        Le depot Git fait foi. Les fichiers de <code>p3/confs/</code> sont une copie de reference
+        pour la lecture et la mise en place : ce sont les manifests <strong>du depot GitHub</strong>
+        qu'Argo CD applique reellement. Toute modification locale doit y etre repercutee, sinon les
+        deux divergent silencieusement.
+      </p>
+    </div>
+
+    <h3>Le cycle de synchronisation</h3>
+    <p>
+      Par defaut, Argo CD interroge le depot toutes les trois minutes. En soutenance, il ne faut pas
+      attendre : le bouton <em>Refresh</em> de l'interface ou la commande
+      <code>argocd app sync wil-playground-app</code> declenche la synchronisation immediatement.
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 330" role="img" aria-labelledby="d6t">
+          <title id="d6t">Boucle GitOps du projet</title>
+
+          <rect class="d-box" x="20" y="120" width="160" height="80" rx="6"/>
+          <text class="d-t hd mid" x="100" y="150">Depot Git</text>
+          <text class="d-t mono mid" x="100" y="170">deployment.yaml</text>
+          <text class="d-t mono mid" x="100" y="188">image: ...:v1</text>
+
+          <rect class="d-zone" x="250" y="26" width="500" height="278" rx="8"/>
+          <text class="d-t hd" x="268" y="52">Cluster K3d</text>
+
+          <rect class="d-box-a" x="280" y="76" width="190" height="76" rx="6"/>
+          <text class="d-t hd" x="296" y="102">Argo CD</text>
+          <text class="d-t mono" x="296" y="120">namespace argocd</text>
+          <text class="d-t mono" x="296" y="138">compare et applique</text>
+
+          <rect class="d-box-t" x="280" y="192" width="190" height="86" rx="6"/>
+          <text class="d-t hd" x="296" y="218">Application</text>
+          <text class="d-t mono" x="296" y="236">namespace dev</text>
+          <text class="d-t mono" x="296" y="254">Deployment + Service</text>
+          <text class="d-t mono" x="296" y="270">+ Ingress</text>
+
+          <rect class="d-box-w" x="540" y="76" width="180" height="76" rx="6"/>
+          <text class="d-t hd" x="556" y="102">Docker Hub</text>
+          <text class="d-t mono" x="556" y="120">wil42/playground</text>
+          <text class="d-t mono" x="556" y="138">tags v1 et v2</text>
+
+          <rect class="d-box" x="540" y="200" width="180" height="66" rx="6"/>
+          <text class="d-t hd mid" x="630" y="228">Navigateur</text>
+          <text class="d-t mono mid" x="630" y="248">localhost:8888</text>
+
+          <path class="d-line acc" d="M182 148 C 220 148, 240 116, 276 114"/>
+          <polygon class="d-arrow acc" points="278,114 270,110 270,118"/>
+          <text class="d-t mono" x="180" y="106">1. lit (pull)</text>
+
+          <path class="d-line acc" d="M375 154 L375 188"/>
+          <polygon class="d-arrow acc" points="375,190 371,182 379,182"/>
+          <text class="d-t mono" x="382" y="176">2. applique</text>
+
+          <path class="d-line dash" d="M472 216 C 510 216, 508 130, 536 118"/>
+          <polygon class="d-arrow" points="538,117 530,115 532,123"/>
+          <text class="d-t mono" x="478" y="160">3. tire l'image</text>
+
+          <path class="d-line" d="M472 240 L536 236"/>
+          <polygon class="d-arrow" points="538,236 530,232 530,240"/>
+          <text class="d-t mono" x="476" y="258">4. sert le trafic</text>
+
+          <path class="d-line acc dash" d="M100 120 C 100 60, 150 40, 246 40"/>
+          <polygon class="d-arrow acc" points="248,40 240,36 240,44"/>
+          <text class="d-t mono" x="106" y="60">git push v2 -&gt; tout se rejoue</text>
+        </svg>
+      </div>
+      <figcaption>Un seul geste humain : modifier le depot. Le reste est de la reconciliation.</figcaption>
+    </figure>
+
+    <h3>Acces a l'interface</h3>
+    <p>
+      Le Service <code>argocd-server</code> reste en <code>ClusterIP</code>. Il s'atteint par un
+      tunnel local :
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>terminal</span><span>acces a l'interface Argo CD</span></div>
+<pre><code>kubectl port-forward svc/argocd-server -n argocd 8080:443
+# puis https://localhost:8080 (certificat auto-signe : avertissement normal)
+
+# identifiant : admin
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d</code></pre>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="helm">
+    <h2><span class="num">11</span> Helm et GitLab</h2>
+
+    <p class="lead">
+      La partie bonus remplace GitHub par une forge Git installee dans le cluster. Deux notions
+      supplementaires : Helm pour installer un logiciel complexe, et l'architecture interne de
+      GitLab.
+    </p>
+
+    <h3>Helm</h3>
+    <p>
+      GitLab represente plusieurs dizaines d'objets Kubernetes. Les ecrire a la main serait
+      ingerable. Helm est le gestionnaire de paquets de Kubernetes : il distribue des
+      <strong>charts</strong>, c'est-a-dire des modeles de manifests parametrables.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Terme</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>chart</strong></td><td>Paquet contenant les modeles de manifests et leurs valeurs par defaut.</td></tr>
+          <tr><td><strong>values</strong></td><td>Fichier <abbr>YAML</abbr> qui surcharge les valeurs par defaut du chart.</td></tr>
+          <tr><td><strong>release</strong></td><td>Instance installee d'un chart, identifiee par un nom dans un namespace.</td></tr>
+          <tr><td><strong>repo</strong></td><td>Catalogue de charts, ici <code>https://charts.gitlab.io/</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Le fichier <code>bonus/confs/gitlab-values.yaml</code> desactive tout ce qui n'est pas
+      necessaire (registre d'images, Prometheus, cert-manager, runner, stockage objet, Pages) afin de
+      tenir dans les ressources d'une machine d'evaluation.
+    </p>
+
+    <h3>Les composants du chart GitLab</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Composant</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>webservice</code></td><td>Application Rails : interface web et <abbr>API</abbr> v4. Ecoute sur le port 8181.</td></tr>
+          <tr><td><code>gitaly</code></td><td>Service qui detient reellement les depots Git sur disque et repond aux appels <abbr>RPC</abbr>.</td></tr>
+          <tr><td><code>sidekiq</code></td><td>Traitement des taches de fond (courriels, hooks, indexation).</td></tr>
+          <tr><td><code>gitlab-shell</code></td><td>Acces Git par <abbr>SSH</abbr>.</td></tr>
+          <tr><td><code>toolbox</code></td><td>Pod de maintenance donnant acces a <code>gitlab-rails runner</code>, la console d'administration.</td></tr>
+          <tr><td>PostgreSQL, Redis</td><td>Base de donnees relationnelle et cache, installes par le chart.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Automatiser GitLab</h3>
+    <p>
+      Le script <code>bonus/scripts/configure_gitlab.sh</code> enchaine, sans intervention manuelle :
+    </p>
+    <ol>
+      <li>Lecture du mot de passe <code>root</code> dans le Secret cree par le chart.</li>
+      <li>Ouverture d'un tunnel vers le service web, puis attente que l'<abbr>API</abbr> reponde.</li>
+      <li>Creation d'un <abbr>PAT</abbr> via <code>gitlab-rails runner</code> dans le pod toolbox,
+        avec repli sur un jeton <abbr>OAuth</abbr> obtenu par mot de passe.</li>
+      <li>Creation du projet <code>iot-app</code> en visibilite publique, par l'<abbr>API</abbr> v4.</li>
+      <li>Initialisation d'un depot local, copie des manifests, puis <code>git push</code>.</li>
+      <li>Declaration du depot aupres d'Argo CD sous forme de Secret portant le label
+        <code>argocd.argoproj.io/secret-type: repository</code>.</li>
+    </ol>
+
+    <div class="box ok">
+      <span class="tag">Pourquoi HTTP et insecure</span>
+      <p>
+        Argo CD joint GitLab par son nom de Service interne, en clair sur le port 8181. Le trafic ne
+        quitte jamais le reseau du cluster, et aucune autorite de certification n'est deployee : le
+        champ <code>insecure: "true"</code> du Secret indique simplement a Argo CD de ne pas exiger
+        de verification <abbr>TLS</abbr>. Dans un contexte de production, on installerait un
+        certificat plutot que de desactiver la verification.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="parties">
+    <h2><span class="num">12</span> Les quatre parties, en detail</h2>
+
+    <p class="lead">
+      Pour chaque partie : ce que le sujet impose, ce qui est implemente, et la commande qui le
+      prouve.
+    </p>
+
+    <h3>p1 - K3s et Vagrant</h3>
+    <div class="box req">
+      <span class="tag">Exigences</span>
+      <p>Deux machines, derniere version stable de la distribution choisie, 1 <abbr>CPU</abbr> et
+      512 ou 1024 Mo de <abbr>RAM</abbr>. Noms de machines bases sur un login de l'equipe, suffixes
+      S et SW. <abbr>IP</abbr> dediees 192.168.56.110 et .111. <abbr>SSH</abbr> sans mot de passe.
+      K3s en mode controller sur la premiere, en mode agent sur la seconde. kubectl installe.</p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Exigence</th><th>Implementation</th><th>Fichier</th></tr></thead>
+        <tbody>
+          <tr><td>2 machines</td><td><code>chillionS</code> et <code>chillionSW</code></td><td><code>p1/Vagrantfile</code></td></tr>
+          <tr><td>Derniere version stable</td><td>Ubuntu 26.04 <abbr>LTS</abbr> via <code>bento/ubuntu-26.04</code></td><td><code>p1/Vagrantfile</code></td></tr>
+          <tr><td>Ressources</td><td>1 <abbr>CPU</abbr>, 1024 Mo</td><td><code>p1/Vagrantfile</code></td></tr>
+          <tr><td><abbr>IP</abbr> dediees</td><td><code>private_network</code>, adresses fixes</td><td><code>p1/Vagrantfile</code></td></tr>
+          <tr><td><abbr>SSH</abbr> sans mot de passe</td><td>Cle generee et inseree par Vagrant a la creation</td><td>comportement par defaut</td></tr>
+          <tr><td>Mode controller</td><td><code>sh -s - server --node-ip --flannel-iface</code></td><td><code>p1/scripts/install_k3s_server.sh</code></td></tr>
+          <tr><td>Mode agent</td><td><code>sh -s - agent</code> avec <code>K3S_URL</code> et <code>K3S_TOKEN</code></td><td><code>p1/scripts/install_k3s_agent.sh</code></td></tr>
+          <tr><td>kubectl</td><td>Fourni par l'installeur K3s, plus un kubeconfig utilisateur</td><td><code>p1/scripts/install_k3s_server.sh</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="codeblock">
+      <div class="fname"><span>demonstration p1</span><span>resultat attendu</span></div>
+<pre><code>make p1
+make p1-verify
+
+# ou directement :
+cd p1 &amp;&amp; vagrant ssh chillionS -c "kubectl get nodes -o wide"
+# NAME         STATUS   ROLES                  ...  INTERNAL-IP
+# chillions    Ready    control-plane,master   ...  192.168.56.110
+# chillionsw   Ready    &lt;none&gt;                 ...  192.168.56.111</code></pre>
+    </div>
+    <p>
+      Les noms de noeuds apparaissent en minuscules : Kubernetes normalise les noms d'objets,
+      alors que le nom de la machine VirtualBox et le hostname respectent bien la casse demandee.
+    </p>
+
+    <h3>p2 - K3s et trois applications</h3>
+    <div class="box req">
+      <span class="tag">Exigences</span>
+      <p>Une seule machine avec K3s en mode server. Trois applications web. Acces differencie selon
+      l'en-tete Host lors d'une requete vers 192.168.56.110 : <code>app1.com</code> affiche app1,
+      <code>app2.com</code> affiche app2, tout le reste affiche app3. L'application 2 possede
+      3 replicas. L'Ingress doit etre montre aux evaluateurs.</p>
+    </div>
+    <p>
+      Les trois applications sont des <code>nginx:alpine</code> servant une page fournie par une
+      ConfigMap : aucune image a construire, aucun registre a alimenter, et la difference entre les
+      applications est visible d'un coup d'oeil. Le deploiement se fait au provisionnement, depuis
+      les manifests lus dans le dossier synchronise.
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>demonstration p2</span><span>depuis l'hote</span></div>
+<pre><code>make p2
+make p2-test
+
+curl -H "Host: app1.com" http://192.168.56.110    # Application 1
+curl -H "Host: app2.com" http://192.168.56.110    # Application 2
+curl http://192.168.56.110                        # Application 3 (defaut)
+
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get ingress -n apps"
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get deploy -n apps"
+# app2 doit afficher READY 3/3</code></pre>
+    </div>
+
+    <h3>p3 - K3d et Argo CD</h3>
+    <div class="box req">
+      <span class="tag">Exigences</span>
+      <p>Installer K3d et ecrire un script installant tous les paquets necessaires. Comprendre la
+      difference entre K3s et K3d. Creer deux namespaces : un pour Argo CD, un nomme <code>dev</code>
+      contenant l'application. L'application est deployee automatiquement par Argo CD depuis un
+      depot GitHub public dont le nom contient le login d'un membre du groupe. Elle existe en deux
+      versions, et changer la version depuis GitHub doit mettre a jour le cluster.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Etape</th><th>Commande</th><th>Ce qui se passe</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>make p3-install</code></td><td>Installe Docker, kubectl, K3d et le client Argo CD selon la distribution detectee.</td></tr>
+          <tr><td>2</td><td><code>make p3-setup</code></td><td>Cree le cluster <code>iot-cluster</code>, les namespaces <code>argocd</code> et <code>dev</code>, installe Argo CD et attend son demarrage.</td></tr>
+          <tr><td>3</td><td><code>make p3-deploy</code></td><td>Applique l'objet <code>Application</code>. Argo CD clone le depot et deploie dans <code>dev</code>.</td></tr>
+          <tr><td>4</td><td><code>make p3-test</code></td><td>Verifie le cluster, les namespaces, l'image deployee et la reponse sur le port 8888.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="codeblock">
+      <div class="fname"><span>demonstration p3</span><span>bascule de version</span></div>
+<pre><code>curl http://localhost:8888
+# {"status":"ok", "message": "v1"}
+
+# dans le depot GitHub :
+sed -i 's|wil42/playground:v1|wil42/playground:v2|' deployment.yaml
+git commit -am "passage en v2" &amp;&amp; git push
+
+# synchronisation automatique sous 3 minutes, ou immediate :
+argocd app sync wil-playground-app
+
+curl http://localhost:8888
+# {"status":"ok", "message": "v2"}</code></pre>
+    </div>
+
+    <h3>bonus - GitLab local</h3>
+    <div class="box req">
+      <span class="tag">Exigences</span>
+      <p>Ajouter GitLab au laboratoire de la partie 3. Derniere version disponible sur le site
+      officiel. Instance executee localement. Namespace dedie nomme <code>gitlab</code>. Tout ce qui
+      a ete fait en partie 3 doit fonctionner avec ce GitLab local.</p>
+      <p>La partie bonus n'est evaluee que si la partie obligatoire est parfaite.</p>
+    </div>
+    <p>
+      Le cluster du bonus est distinct (<code>iot-bonus</code>) et comporte trois namespaces. La
+      seule difference fonctionnelle avec la partie 3 tient dans le champ <code>repoURL</code> de
+      l'objet <code>Application</code>, qui pointe vers le Service interne de GitLab au lieu de
+      GitHub. Le script <code>test.sh</code> verifie explicitement que la source n'est pas GitHub.
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>demonstration bonus</span><span>chaine complete hors ligne</span></div>
+<pre><code>make bonus          # install, cluster, GitLab, configuration, deploiement
+make bonus-test
+
+# demonstration v1 -&gt; v2 depuis le GitLab local :
+kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181 &amp;
+git clone http://root:&lt;mot-de-passe&gt;@localhost:30080/root/iot-app.git /tmp/iot-app
+cd /tmp/iot-app &amp;&amp; sed -i 's/:v1/:v2/' deployment.yaml
+git commit -am "v2" &amp;&amp; git push</code></pre>
+    </div>
+    <div class="box warn">
+      <span class="tag">Ressources</span>
+      <p>
+        Le chart GitLab est lourd : prevoir environ 3 <abbr>CPU</abbr> et 6 Go de <abbr>RAM</abbr>
+        disponibles, et 10 a 15 minutes de deploiement. C'est la raison pour laquelle
+        <code>gitlab-values.yaml</code> desactive tous les composants facultatifs.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="choix">
+    <h2><span class="num">13</span> Choix techniques et justifications</h2>
+
+    <p class="lead">
+      Chaque ligne de ce tableau est une question probable en soutenance. La reponse tient en une
+      phrase, la justification en trois.
+    </p>
+
+    <h3>Pourquoi la box bento/ubuntu-26.04</h3>
+    <p>
+      Le sujet impose la derniere version stable de la distribution. Les images officielles Debian
+      ne sont plus publiees que pour libvirt, donc inutilisables avec VirtualBox. Canonical ne
+      publie plus de box au-dela de Ubuntu 22.04. Le catalogue bento, maintenu et couvrant
+      VirtualBox en amd64, propose Ubuntu 26.04 <abbr>LTS</abbr> : c'est la seule combinaison qui
+      satisfait a la fois l'exigence de fraicheur et le <abbr>provider</abbr> impose par le reste du
+      projet.
+    </p>
+
+    <h3>Pourquoi detecter l'interface reseau</h3>
+    <p>
+      Le nom de la seconde interface (<code>enp0s8</code>, <code>eth1</code>, ...) depend de la
+      distribution et de sa version. Le coder en dur signifie que tout changement de box casse
+      silencieusement flannel : le cluster se forme, mais le trafic inter-noeuds ne passe plus. La
+      deduction depuis l'<abbr>IP</abbr> supprime cette classe entiere de panne.
+    </p>
+
+    <h3>Pourquoi le token passe par le dossier synchronise</h3>
+    <p>
+      L'agent a besoin d'un secret detenu par le server. Trois solutions existaient :
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Solution</th><th>Inconvenient</th></tr></thead>
+        <tbody>
+          <tr><td>Copier la cle privee <em>insecure</em> de Vagrant dans le worker et faire un <abbr>SSH</abbr> entre machines</td>
+            <td>Impose <code>insert_key = false</code>, donc une cle publiquement connue sur les deux machines ; depend d'un chemin de l'hote qui peut changer selon la version de Vagrant.</td></tr>
+          <tr><td>Ecrire un token fixe dans le depot</td>
+            <td>Secret en dur, versionne.</td></tr>
+          <tr><td><strong>Publier le token dans le dossier synchronise</strong></td>
+            <td>Aucun. Le dossier est deja monte dans les deux machines, le fichier est ignore par git, et Vagrant peut conserver son insertion de cle par machine.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Le sujet insiste sur des "modern practices" pour le Vagrantfile : conserver la generation de
+      cle par machine est precisement cela.
+    </p>
+
+    <h3>Pourquoi ingressClassName plutot que l'annotation</h3>
+    <p>
+      L'annotation <code>kubernetes.io/ingress.class</code> est depreciee depuis Kubernetes 1.18 et
+      n'est plus lue par Traefik v3, embarque dans les versions recentes de <abbr>K3s</abbr>. Elle a
+      un effet de bord peu connu : sa presence empeche l'<abbr>API</abbr> server d'affecter
+      automatiquement l'IngressClass par defaut. Le champ <code>spec.ingressClassName</code> est la
+      forme normalisee et explicite.
+    </p>
+
+    <h3>Pourquoi le port 8888 est branche sur le port 80</h3>
+    <p>
+      Voir <a href="#k3d">section 09</a> : publier <code>8888:8888</code> ouvre un port qui ne mene
+      nulle part, puisque rien n'ecoute sur le port 8888 des noeuds. Brancher le port 8888 de l'hote
+      sur le port 80 des noeuds place Traefik dans le chemin, et l'Ingress route vers le Service.
+      La commande <code>curl http://localhost:8888</code> du sujet fonctionne alors sans tunnel.
+    </p>
+
+    <h3>Pourquoi argocd-server reste en ClusterIP</h3>
+    <p>
+      Passer ce Service en <code>LoadBalancer</code> semble pratique, mais dans <abbr>K3s</abbr> le
+      type LoadBalancer est realise par <abbr>klipper-lb</abbr>, qui reserve les ports concernes sur
+      les noeuds. Traefik occupe deja 80 et 443 : le second service reste indefiniment en attente
+      d'adresse. Le tunnel <code>kubectl port-forward</code> est la methode standard, immediate et
+      sans conflit.
+    </p>
+
+    <h3>Pourquoi rollout status plutot que wait</h3>
+    <p>
+      <code>kubectl wait --for=condition=ready pod -l ...</code> echoue immediatement, avec le
+      message <em>no matching resources found</em>, si aucun pod ne correspond encore au selecteur.
+      Juste apres un <code>apply</code>, c'est le cas le plus frequent. <code>kubectl rollout
+      status</code> porte sur le Deployment, qui existe des l'application du manifest. Pour les
+      ressources creees par Argo CD, une boucle attend d'abord l'apparition du pod, puis
+      <code>kubectl wait</code> attend sa disponibilite.
+    </p>
+
+    <h3>Pourquoi les scripts sont en set -e avec des attentes explicites</h3>
+    <p>
+      Un <code>sleep 30</code> est un pari : trop court il masque une erreur, trop long il fait
+      perdre du temps. Les scripts attendent une condition observable (l'<abbr>API</abbr> repond, le
+      service est actif, le pod existe) avec une borne maximale et un message de diagnostic. Un
+      echec devient visible immediatement, au lieu de se manifester trois etapes plus loin.
+    </p>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="runbook">
+    <h2><span class="num">14</span> Runbook</h2>
+
+    <p class="lead">
+      Les commandes utiles, regroupees par outil. Toutes les cibles du Makefile s'executent depuis la
+      racine du depot.
+    </p>
+
+    <h3>Makefile</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Cible</th><th>Effet</th></tr></thead>
+        <tbody>
+          <tr><td><code>make help</code></td><td>Liste toutes les cibles disponibles.</td></tr>
+          <tr><td><code>make p1</code> / <code>make p2</code></td><td>Monte la partie correspondante avec Vagrant.</td></tr>
+          <tr><td><code>make p1-verify</code></td><td>Verification complete du cluster de la partie 1.</td></tr>
+          <tr><td><code>make p2-test</code></td><td>Teste les trois routes <abbr>HTTP</abbr> depuis l'hote.</td></tr>
+          <tr><td><code>make p3</code></td><td>Enchaine installation, cluster, Argo CD et deploiement.</td></tr>
+          <tr><td><code>make p3-test</code></td><td>Verifie namespaces, image deployee et reponse applicative.</td></tr>
+          <tr><td><code>make bonus</code></td><td>Chaine complete avec GitLab local.</td></tr>
+          <tr><td><code>make status</code></td><td>Etat de toutes les parties.</td></tr>
+          <tr><td><code>make check</code></td><td>Verifie la conformite de l'arborescence aux consignes.</td></tr>
+          <tr><td><code>make clean</code> / <code>make fclean</code></td><td>Detruit machines, clusters et fichiers temporaires.</td></tr>
+          <tr><td><code>make VM_STORAGE=... p1</code></td><td>Change l'emplacement de stockage des box et des disques.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>kubectl</h3>
+    <div class="codeblock">
+      <div class="fname"><span>terminal</span><span>inspection</span></div>
+<pre><code>kubectl get nodes -o wide                  # noeuds et adresses
+kubectl get all -A                         # tous les objets, tous les namespaces
+kubectl get pods -n dev -o wide            # pods d'un namespace
+kubectl describe pod &lt;nom&gt; -n dev          # evenements et causes d'echec
+kubectl logs -n dev -l app=wil-playground  # journaux par label
+kubectl get ingress -A                     # regles de routage HTTP
+kubectl get svc -n dev                     # services et ports
+kubectl rollout status deploy/&lt;nom&gt; -n dev # attendre une mise a jour
+kubectl port-forward svc/&lt;nom&gt; -n dev 8888:8888</code></pre>
+    </div>
+
+    <h3>Vagrant, K3d, Argo CD</h3>
+    <div class="codeblock">
+      <div class="fname"><span>terminal</span><span>par outil</span></div>
+<pre><code># Vagrant (depuis p1/ ou p2/)
+vagrant status ; vagrant ssh chillionS ; vagrant destroy -f
+vagrant provision                # rejoue les scripts sur une VM existante
+
+# K3d
+k3d cluster list
+k3d cluster delete iot-cluster
+docker ps                        # les noeuds sont des conteneurs
+
+# Argo CD
+kubectl get application -n argocd -o wide
+argocd app get wil-playground-app
+argocd app sync wil-playground-app          # forcer la synchronisation
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d</code></pre>
+    </div>
+
+    <h3>Sequence de soutenance conseillee</h3>
+    <ol>
+      <li><code>make p1</code> puis <code>make p1-verify</code> : montrer les deux noeuds Ready et les roles.</li>
+      <li><code>make p1-clean</code>, puis <code>make p2</code> et <code>make p2-test</code> : montrer les trois routes et <code>kubectl get ingress</code>.</li>
+      <li><code>make p2-clean</code>, puis <code>make p3</code> : montrer les namespaces, l'interface Argo CD, et <code>curl localhost:8888</code>.</li>
+      <li>Basculer la version dans le depot GitHub, rafraichir Argo CD, remontrer le <code>curl</code>.</li>
+      <li>Si le bonus est presente : <code>make p3-clean</code> puis <code>make bonus</code>.</li>
+    </ol>
+    <div class="box warn">
+      <span class="tag">Ne pas cumuler</span>
+      <p>
+        Les parties se disputent les memes ressources et les memes ports : nettoyer la precedente
+        avant de lancer la suivante evite les conflits de port 80 et les manques de memoire.
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="pannes">
+    <h2><span class="num">15</span> Depannage</h2>
+
+    <p class="lead">
+      Les pannes reellement rencontrees sur ce projet, leur cause et leur correction.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Symptome</th><th>Cause</th><th>Correction</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>vagrant up</code> echoue : VT-x indisponible</td>
+            <td>Virtualisation imbriquee desactivee sur la <abbr>VM</abbr> d'evaluation.</td>
+            <td>L'activer dans l'hyperviseur hote. <code>Tools/VM_commands.sh</code> signale le probleme des le depart.</td>
+          </tr>
+          <tr>
+            <td>Erreur de permission sur <code>/dev/vboxdrv</code></td>
+            <td>L'utilisateur n'appartient pas au groupe <code>vboxusers</code>, ou le module n'est pas charge.</td>
+            <td><code>sudo usermod -aG vboxusers $USER</code> puis reconnexion ; verifier <code>lsmod | grep vbox</code>.</td>
+          </tr>
+          <tr>
+            <td>Disque plein pendant <code>vagrant up</code></td>
+            <td>Les box et disques sont stockes sous <code>/tmp</code>, monte en tmpfs (donc en <abbr>RAM</abbr>) sur certaines distributions.</td>
+            <td><code>make VM_STORAGE=$HOME/iot-vms p1</code></td>
+          </tr>
+          <tr>
+            <td>"A VM with the name chillionS already exists"</td>
+            <td>Une machine du meme nom subsiste d'une execution precedente.</td>
+            <td><code>make fclean</code>, ou <code>VBoxManage unregistervm chillionS --delete</code>.</td>
+          </tr>
+          <tr>
+            <td>Le noeud agent reste absent de <code>kubectl get nodes</code></td>
+            <td>Token non recupere, ou flannel sur la mauvaise interface.</td>
+            <td>Verifier <code>p1/confs/node-token</code>, puis <code>journalctl -u k3s-agent</code> dans la machine.</td>
+          </tr>
+          <tr>
+            <td><code>docker: permission denied</code></td>
+            <td>L'utilisateur vient d'etre ajoute au groupe <code>docker</code> mais la session n'a pas ete rouverte.</td>
+            <td><code>newgrp docker</code> ou reconnexion.</td>
+          </tr>
+          <tr>
+            <td><code>curl localhost:8888</code> renvoie 404</td>
+            <td>L'Ingress existe mais aucune regle ne correspond, ou le Service ne selectionne aucun pod.</td>
+            <td><code>kubectl get ingress -n dev</code> puis <code>kubectl get endpoints -n dev</code> : un endpoint vide signale un selecteur errone.</td>
+          </tr>
+          <tr>
+            <td>Argo CD affiche <em>OutOfSync</em> sans jamais deployer</td>
+            <td>Depot inaccessible, chemin errone, ou branche inexistante.</td>
+            <td><code>kubectl describe application wil-playground-app -n argocd</code> : le message d'erreur figure dans les conditions.</td>
+          </tr>
+          <tr>
+            <td>Un Service LoadBalancer reste en <em>Pending</em></td>
+            <td>Le port demande est deja occupe sur les noeuds par un autre Service (Traefik).</td>
+            <td>Utiliser <code>kubectl port-forward</code> plutot que de changer le type du Service.</td>
+          </tr>
+          <tr>
+            <td>Les pods GitLab restent en <em>Pending</em></td>
+            <td>Ressources insuffisantes sur la machine d'evaluation.</td>
+            <td>Liberer de la memoire, ne pas faire tourner p1 ou p2 en meme temps, verifier avec <code>kubectl describe pod</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Reflexe de diagnostic</h3>
+    <ol>
+      <li><code>kubectl get pods -A</code> : quel objet n'est pas dans l'etat attendu ?</li>
+      <li><code>kubectl describe</code> sur cet objet : la section <em>Events</em> donne presque toujours la cause.</li>
+      <li><code>kubectl logs</code> si le conteneur demarre puis s'arrete.</li>
+      <li>Pour une <abbr>VM</abbr>, <code>journalctl -u k3s</code> ou <code>journalctl -u k3s-agent</code>.</li>
+    </ol>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="lexique">
+    <h2><span class="num">16</span> Lexique</h2>
+
+    <p class="lead">
+      Tous les acronymes et termes techniques employes dans ce document et dans le projet.
+      Les memes definitions alimentent les bulles d'information.
+    </p>
+
+    <div class="lex-controls">
+      <input type="search" class="lex-search" id="lex-search" placeholder="Filtrer : k3s, ingress, token..." aria-label="Filtrer le lexique">
+      <button class="chip" type="button" data-cat="*" aria-pressed="true">Tout</button>
+      <button class="chip" type="button" data-cat="Kubernetes" aria-pressed="false">Kubernetes</button>
+      <button class="chip" type="button" data-cat="Virtualisation" aria-pressed="false">Virtualisation</button>
+      <button class="chip" type="button" data-cat="Reseau" aria-pressed="false">Reseau</button>
+      <button class="chip" type="button" data-cat="GitOps" aria-pressed="false">GitOps</button>
+      <button class="chip" type="button" data-cat="Outils" aria-pressed="false">Outils</button>
+      <button class="chip" type="button" data-cat="Systeme" aria-pressed="false">Systeme</button>
+    </div>
+
+    <p id="lex-count" class="wide" style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);"></p>
+    <dl id="lex-list"></dl>
+  </section>
+
+  <!-- ====================================================== -->
+  <section class="sec" id="refs">
+    <h2><span class="num">17</span> References</h2>
+
+    <p class="lead">Sources officielles, a privilegier sur toute autre documentation.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Sujet</th><th>Adresse</th></tr></thead>
+        <tbody>
+          <tr><td>Kubernetes, concepts</td><td><a href="https://kubernetes.io/docs/concepts/">kubernetes.io/docs/concepts</a></td></tr>
+          <tr><td>Aide-memoire kubectl</td><td><a href="https://kubernetes.io/docs/reference/kubectl/quick-reference/">kubernetes.io/docs/reference/kubectl</a></td></tr>
+          <tr><td>K3s</td><td><a href="https://docs.k3s.io/">docs.k3s.io</a></td></tr>
+          <tr><td>K3d</td><td><a href="https://k3d.io/">k3d.io</a></td></tr>
+          <tr><td>Argo CD</td><td><a href="https://argo-cd.readthedocs.io/">argo-cd.readthedocs.io</a></td></tr>
+          <tr><td>Traefik, fournisseur Kubernetes Ingress</td><td><a href="https://doc.traefik.io/traefik/providers/kubernetes-ingress/">doc.traefik.io</a></td></tr>
+          <tr><td>Vagrant</td><td><a href="https://developer.hashicorp.com/vagrant/docs">developer.hashicorp.com/vagrant</a></td></tr>
+          <tr><td>Catalogue de box bento</td><td><a href="https://portal.cloud.hashicorp.com/vagrant/discover/bento">portal.cloud.hashicorp.com/vagrant/discover/bento</a></td></tr>
+          <tr><td>Helm</td><td><a href="https://helm.sh/docs/">helm.sh/docs</a></td></tr>
+          <tr><td>Chart GitLab</td><td><a href="https://docs.gitlab.com/charts/">docs.gitlab.com/charts</a></td></tr>
+          <tr><td>Principes GitOps</td><td><a href="https://opengitops.dev/">opengitops.dev</a></td></tr>
+          <tr><td>Image de demonstration</td><td><a href="https://hub.docker.com/r/wil42/playground">hub.docker.com/r/wil42/playground</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Documents du depot</h3>
+    <ul>
+      <li><code>Docs/CONSIGNES_POINTS_CLES.md</code> : exigences detaillees, partie par partie.</li>
+      <li><code>Docs/CONFORMITE_ANALYSE.md</code> : etat de conformite et points de vigilance.</li>
+      <li><code>p1/README.md</code>, <code>p2/README.md</code>, <code>p3/README.md</code>, <code>bonus/README.md</code> : mise en oeuvre de chaque partie.</li>
+      <li><code>p3/confs/GITHUB_SETUP.md</code> : mise en place du depot <abbr>GitOps</abbr>.</li>
+      <li><code>Docs/iot.en.subject.pdf</code> : sujet officiel, version 4.0.</li>
+    </ul>
+  </section>
+
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   Source unique de verite : ce tableau alimente a la fois les
+   bulles d'information sur les acronymes et la section Lexique.
+   t = terme, f = forme complete, c = categorie, d = definition,
+   a = alias reconnus dans le texte.
+   ============================================================ */
+const LEXIQUE = [
+  /* ---------- Kubernetes ---------- */
+  {t:"K8s", f:"Kubernetes", c:"Kubernetes", a:["Kubernetes"], d:"Orchestrateur de conteneurs. On lui decrit l'etat souhaite du systeme, il se charge de l'atteindre et de le maintenir. Abrege K8s : K, huit lettres, s."},
+  {t:"Pod", f:"", c:"Kubernetes", d:"Plus petite unite deployable. Un ou plusieurs conteneurs partageant la meme adresse IP, les memes volumes et le meme cycle de vie."},
+  {t:"ReplicaSet", f:"", c:"Kubernetes", d:"Controleur qui maintient un nombre donne de pods identiques. Cree et pilote par un Deployment, rarement manipule directement."},
+  {t:"Deployment", f:"", c:"Kubernetes", d:"Objet decrivant une application sans etat : image, nombre de replicas, strategie de mise a jour. Il gere ses ReplicaSets pour realiser les mises a jour progressives."},
+  {t:"StatefulSet", f:"", c:"Kubernetes", d:"Equivalent du Deployment pour les applications a etat : identite reseau stable et volume persistant propre a chaque instance. Argo CD l'utilise pour son controleur."},
+  {t:"DaemonSet", f:"", c:"Kubernetes", d:"Garantit l'execution d'exactement un pod sur chaque noeud du cluster. Utilise par klipper-lb pour publier les Services LoadBalancer."},
+  {t:"Job", f:"", c:"Kubernetes", d:"Tache ponctuelle executee jusqu'a completion, puis terminee. Le chart GitLab s'en sert pour les migrations de base de donnees."},
+  {t:"Namespace", f:"", c:"Kubernetes", d:"Cloisonnement logique des objets dans un cluster. Le projet utilise argocd, dev, gitlab et apps. A ne pas confondre avec les namespaces du noyau Linux."},
+  {t:"Service", f:"", c:"Kubernetes", d:"Adresse IP virtuelle stable et repartition de charge vers un ensemble de pods choisis par leurs labels. Les pods vont et viennent, le Service ne bouge pas."},
+  {t:"ClusterIP", f:"", c:"Kubernetes", d:"Type de Service par defaut : joignable uniquement depuis l'interieur du cluster. Tous les Services du projet sont de ce type."},
+  {t:"NodePort", f:"", c:"Kubernetes", d:"Type de Service ouvrant le meme port sur tous les noeuds, dans la plage 30000-32767. Non utilise ici."},
+  {t:"LoadBalancer", f:"", c:"Kubernetes", d:"Type de Service demandant une adresse externe a l'infrastructure. Dans K3s, il est realise par klipper-lb, qui reserve le port sur les noeuds."},
+  {t:"Ingress", f:"", c:"Kubernetes", d:"Regles de routage HTTP de l'exterieur vers des Services, selon le nom d'hote et le chemin. Necessite un controleur d'Ingress pour etre appliquees."},
+  {t:"IngressClass", f:"", c:"Kubernetes", d:"Designe le controleur qui doit traiter une regle d'Ingress. Se declare par spec.ingressClassName ; l'ancienne annotation kubernetes.io/ingress.class est depreciee."},
+  {t:"ConfigMap", f:"", c:"Kubernetes", d:"Donnees de configuration non sensibles, injectables dans un pod sous forme de fichiers ou de variables d'environnement. Sert ici a fournir les pages HTML des trois applications."},
+  {t:"Secret", f:"", c:"Kubernetes", d:"Meme role que la ConfigMap pour des donnees sensibles. Attention : encode en base64, ce qui n'est pas un chiffrement."},
+  {t:"CRD", f:"Custom Resource Definition", c:"Kubernetes", d:"Definition d'un nouveau type d'objet ajoute a l'API du cluster par une application tierce. Argo CD ajoute ainsi le type Application."},
+  {t:"CRI", f:"Container Runtime Interface", c:"Kubernetes", d:"Interface standard entre le kubelet et le runtime de conteneurs. C'est grace a elle que Kubernetes peut utiliser containerd sans dependre de Docker."},
+  {t:"kubectl", f:"", c:"Kubernetes", d:"Client en ligne de commande de Kubernetes. Toute commande est un appel a l'API server, authentifie par le kubeconfig."},
+  {t:"kubeconfig", f:"", c:"Kubernetes", d:"Fichier decrivant comment joindre un cluster : adresse de l'API server, autorite de certification, identifiants et contexte courant. Par defaut ~/.kube/config."},
+  {t:"kubelet", f:"", c:"Kubernetes", d:"Agent present sur chaque noeud. Il recoit de l'API server la liste des pods a executer et pilote le runtime de conteneurs pour les faire tourner."},
+  {t:"kube-proxy", f:"", c:"Kubernetes", d:"Composant de noeud qui programme les regles reseau permettant a l'adresse d'un Service d'atteindre effectivement les pods correspondants."},
+  {t:"kube-apiserver", f:"", c:"Kubernetes", d:"Point d'entree unique du cluster. Il expose l'API REST, valide les objets et les persiste. Aucun autre composant ne communique directement avec un autre."},
+  {t:"etcd", f:"", c:"Kubernetes", d:"Base de donnees cle-valeur distribuee, stockage par defaut de Kubernetes. K3s lui prefere SQLite via kine pour un serveur unique."},
+  {t:"kine", f:"Kine Is Not Etcd", c:"Kubernetes", d:"Couche de traduction qui expose une API etcd au-dessus d'une autre base, SQLite par defaut dans K3s. C'est ce qui permet a K3s de se passer d'etcd."},
+  {t:"boucle de reconciliation", f:"", c:"Kubernetes", d:"Principe de fonctionnement de Kubernetes : un controleur compare en permanence l'etat observe a l'etat souhaite et agit pour combler l'ecart. Un pod supprime est recree sans intervention."},
+  {t:"manifest", f:"", c:"Kubernetes", d:"Fichier YAML decrivant un objet Kubernetes. Toujours structure autour de apiVersion, kind, metadata et spec."},
+  {t:"label", f:"", c:"Kubernetes", d:"Couple cle-valeur pose sur un objet. Les Services et les controleurs ne referencent jamais un nom mais un ensemble de labels, via un selecteur."},
+  {t:"RBAC", f:"Role-Based Access Control", c:"Kubernetes", d:"Modele d'autorisation de Kubernetes : des roles listent des permissions, des liaisons associent ces roles a des utilisateurs ou des comptes de service."},
+  {t:"PVC", f:"Persistent Volume Claim", c:"Kubernetes", d:"Demande de stockage persistant faite par un pod. Dans K3s, elle est satisfaite par local-path-provisioner, qui alloue un repertoire sur le disque du noeud."},
+  {t:"HA", f:"High Availability", c:"Kubernetes", d:"Haute disponibilite : configuration a plusieurs noeuds de controle, permettant de survivre a la perte de l'un d'eux. Hors perimetre de ce projet."},
+
+  /* ---------- Virtualisation et conteneurs ---------- */
+  {t:"VM", f:"Virtual Machine", c:"Virtualisation", a:["VMs"], d:"Machine virtuelle : ordinateur complet simule par logiciel, avec son propre noyau et son propre systeme de fichiers. Isolation forte, demarrage lent, empreinte disque importante."},
+  {t:"hyperviseur", f:"", c:"Virtualisation", d:"Logiciel qui cree et execute des machines virtuelles. De type 1 s'il s'installe directement sur le materiel, de type 2 s'il s'execute au-dessus d'un systeme hote, comme VirtualBox."},
+  {t:"virtualisation imbriquee", f:"nested virtualization", c:"Virtualisation", d:"Execution d'un hyperviseur a l'interieur d'une machine virtuelle. Exige que l'hyperviseur du dessus expose les instructions VT-x ou AMD-V a son invite. Prerequis absolu des parties 1 et 2 de ce projet."},
+  {t:"VT-x", f:"Intel Virtualization Technology", c:"Virtualisation", a:["AMD-V"], d:"Jeu d'instructions du processeur dediees a la virtualisation : VT-x chez Intel, AMD-V chez AMD. Leur presence se verifie par les drapeaux vmx ou svm dans /proc/cpuinfo."},
+  {t:"conteneur", f:"", c:"Virtualisation", d:"Processus isole par le noyau de l'hote au moyen des namespaces et des cgroups. Il ne simule pas de machine : il partage le noyau, d'ou son demarrage quasi instantane."},
+  {t:"namespaces", f:"espaces de noms du noyau", c:"Virtualisation", d:"Mecanisme du noyau Linux qui cloisonne ce qu'un processus voit : arborescence de fichiers, interfaces reseau, liste des processus, utilisateurs. Une des deux bases des conteneurs."},
+  {t:"cgroups", f:"control groups", c:"Virtualisation", d:"Mecanisme du noyau Linux qui limite ce qu'un processus consomme : CPU, memoire, entrees-sorties. Seconde base des conteneurs."},
+  {t:"image", f:"", c:"Virtualisation", d:"Modele immuable en couches contenant un systeme de fichiers et la commande a lancer. Un conteneur est une instance en execution d'une image."},
+  {t:"tag", f:"", c:"Virtualisation", d:"Etiquette de version pointant vers une image precise, comme v1 ou v2. Changer le tag dans un manifest, c'est changer la version deployee : c'est le levier de la demonstration GitOps."},
+  {t:"registre", f:"registry", c:"Virtualisation", d:"Serveur stockant et distribuant les images de conteneurs. Docker Hub est le registre public utilise ici."},
+  {t:"OCI", f:"Open Container Initiative", c:"Virtualisation", d:"Organisme qui normalise le format des images et l'execution des conteneurs. Grace a elle, une image construite avec Docker s'execute sous containerd."},
+  {t:"containerd", f:"", c:"Virtualisation", d:"Runtime de conteneurs de haut niveau : il gere les images et le cycle de vie des conteneurs, et delegue leur creation a runc. Embarque dans K3s."},
+  {t:"runc", f:"", c:"Virtualisation", d:"Runtime de bas niveau qui cree effectivement le conteneur en configurant namespaces et cgroups, conformement a la specification OCI."},
+  {t:"Docker", f:"", c:"Virtualisation", d:"Plateforme de conteneurisation la plus repandue. Requise par K3d, qui execute les noeuds du cluster sous forme de conteneurs Docker."},
+  {t:"VirtualBox", f:"", c:"Virtualisation", d:"Hyperviseur de type 2 d'Oracle, provider Vagrant utilise dans les parties 1 et 2."},
+
+  /* ---------- Vagrant ---------- */
+  {t:"Vagrant", f:"", c:"Outils", d:"Outil qui decrit des machines virtuelles dans un fichier texte versionne, puis les cree et les provisionne de facon reproductible."},
+  {t:"box", f:"", c:"Outils", d:"Image de base Vagrant : un systeme deja installe, telecharge depuis un catalogue public. Ce projet utilise bento/ubuntu-26.04."},
+  {t:"provider", f:"", c:"Outils", d:"Moteur de virtualisation pilote par Vagrant : VirtualBox ici, mais aussi libvirt, VMware ou Hyper-V."},
+  {t:"provisioner", f:"", c:"Outils", d:"Etape executee automatiquement dans la machine apres son premier demarrage : script shell, Ansible, fichier a copier. Rejouable avec vagrant provision."},
+  {t:"synced folder", f:"dossier synchronise", c:"Outils", d:"Repertoire de l'hote monte automatiquement dans la machine virtuelle, sur /vagrant par defaut. Sert ici a lire les manifests et a transmettre le node-token."},
+  {t:"IaC", f:"Infrastructure as Code", c:"Outils", d:"Pratique consistant a decrire l'infrastructure dans des fichiers versionnes plutot qu'a la configurer manuellement. Vagrant, les manifests Kubernetes et le GitOps en relevent tous."},
+
+  /* ---------- Reseau ---------- */
+  {t:"IP", f:"Internet Protocol", c:"Reseau", d:"Protocole d'adressage des machines sur un reseau. Une adresse IPv4 s'ecrit sous la forme 192.168.56.110."},
+  {t:"CIDR", f:"Classless Inter-Domain Routing", c:"Reseau", d:"Notation d'une plage d'adresses par un prefixe et une longueur, comme 10.42.0.0/16. Le suffixe indique le nombre de bits fixes."},
+  {t:"NAT", f:"Network Address Translation", c:"Reseau", d:"Traduction d'adresses permettant a une machine d'un reseau prive de sortir vers Internet. C'est le mode de la premiere interface de toute VM Vagrant."},
+  {t:"DNS", f:"Domain Name System", c:"Reseau", d:"Systeme de resolution des noms en adresses IP."},
+  {t:"CoreDNS", f:"", c:"Reseau", d:"Serveur DNS interne du cluster. Il donne a chaque Service un nom de la forme service.namespace.svc.cluster.local."},
+  {t:"FQDN", f:"Fully Qualified Domain Name", c:"Reseau", d:"Nom de domaine complet, sans ambiguite. Dans le cluster : gitlab-webservice-default.gitlab.svc.cluster.local."},
+  {t:"CNI", f:"Container Network Interface", c:"Reseau", d:"Interface standard entre Kubernetes et le greffon reseau. Kubernetes ne fait pas de reseau lui-meme : il delegue a une implementation CNI."},
+  {t:"flannel", f:"", c:"Reseau", d:"Greffon CNI simple, embarque dans K3s. Il donne a chaque noeud une plage d'adresses et transporte le trafic inter-noeuds, par defaut en VXLAN."},
+  {t:"VXLAN", f:"Virtual Extensible LAN", c:"Reseau", d:"Encapsulation d'un reseau virtuel dans des paquets UDP. Permet aux pods de deux noeuds differents de communiquer comme s'ils partageaient un meme reseau."},
+  {t:"TCP", f:"Transmission Control Protocol", c:"Reseau", d:"Protocole de transport fiable et oriente connexion. Un Service Kubernetes travaille a ce niveau : il ne connait que des adresses et des ports."},
+  {t:"UDP", f:"User Datagram Protocol", c:"Reseau", d:"Protocole de transport sans connexion, utilise ici comme transport de l'encapsulation VXLAN."},
+  {t:"HTTP", f:"HyperText Transfer Protocol", c:"Reseau", d:"Protocole du web. Un Ingress travaille a ce niveau : il peut lire l'en-tete Host et le chemin pour choisir une destination."},
+  {t:"HTTPS", f:"HTTP Secure", c:"Reseau", d:"HTTP chiffre par TLS. L'interface d'Argo CD n'est servie qu'en HTTPS, avec un certificat auto-signe par defaut."},
+  {t:"TLS", f:"Transport Layer Security", c:"Reseau", d:"Protocole de chiffrement et d'authentification des communications. L'option insecure d'un depot Argo CD desactive la verification du certificat."},
+  {t:"SSH", f:"Secure Shell", c:"Reseau", d:"Protocole d'acces distant chiffre. Le sujet impose une connexion SSH sans mot de passe sur les deux machines de la partie 1."},
+  {t:"Traefik", f:"", c:"Reseau", d:"Controleur d'Ingress installe par defaut dans K3s. Il lit les objets Ingress et route le trafic entrant vers les Services correspondants."},
+  {t:"klipper-lb", f:"ServiceLB", c:"Reseau", d:"Implementation minimale des Services LoadBalancer dans K3s. Elle cree un DaemonSet qui reserve le port demande sur chaque noeud, d'ou les conflits si deux Services veulent le meme port."},
+  {t:"port-forward", f:"", c:"Reseau", d:"Tunnel temporaire cree par kubectl entre un port local et un port d'un pod ou d'un Service. Methode standard pour joindre un service interne sans l'exposer."},
+
+  /* ---------- GitOps ---------- */
+  {t:"GitOps", f:"", c:"GitOps", d:"Pratique consistant a faire du depot Git la source de verite de l'infrastructure : un agent installe dans le cluster lit le depot et fait converger l'etat reel vers son contenu."},
+  {t:"Argo CD", f:"", c:"GitOps", d:"Agent GitOps pour Kubernetes. Il surveille un depot Git, compare son contenu a l'etat du cluster et applique les differences en continu."},
+  {t:"Application", f:"objet Argo CD", c:"GitOps", d:"Objet apporte par Argo CD via une CRD. Il indique quel depot lire, quel chemin, quelle revision, et vers quel cluster et namespace deployer."},
+  {t:"drift", f:"derive", c:"GitOps", d:"Ecart entre l'etat decrit dans Git et l'etat reel du cluster, provoque par une modification manuelle ou une suppression accidentelle. L'option selfHeal l'annule automatiquement."},
+  {t:"prune", f:"", c:"GitOps", d:"Option de synchronisation qui supprime du cluster les ressources disparues du depot. Sans elle, un objet retire de Git survivrait indefiniment."},
+  {t:"selfHeal", f:"", c:"GitOps", d:"Option de synchronisation qui annule toute modification faite directement sur le cluster et restaure le contenu du depot."},
+  {t:"targetRevision", f:"", c:"GitOps", d:"Revision du depot suivie par Argo CD : une branche, une etiquette ou un commit. La valeur HEAD suit la branche par defaut."},
+  {t:"CI/CD", f:"Continuous Integration / Continuous Delivery", c:"GitOps", d:"Chaine d'integration et de livraison continues. Le GitOps en est une variante ou le cluster tire les changements au lieu de les recevoir, ce qui evite de confier des acces d'administration a un serveur externe."},
+  {t:"PAT", f:"Personal Access Token", c:"GitOps", d:"Jeton personnel remplacant le mot de passe pour l'acces a une API ou a un depot Git. Cree automatiquement dans GitLab par les scripts du bonus."},
+  {t:"OAuth", f:"Open Authorization", c:"GitOps", d:"Protocole de delegation d'autorisation. Utilise en solution de repli pour obtenir un jeton d'acces a l'API GitLab."},
+
+  /* ---------- Outils ---------- */
+  {t:"K3s", f:"Lightweight Kubernetes", c:"Outils", d:"Distribution Kubernetes certifiee, condensee dans un binaire unique, avec containerd, flannel, CoreDNS et Traefik embarques. Stockage par defaut en SQLite via kine."},
+  {t:"K3d", f:"K3s in Docker", c:"Outils", d:"Outil qui cree des clusters K3s dans des conteneurs Docker. Ce n'est pas une autre version de Kubernetes, mais un emballage de K3s pour le poste de travail."},
+  {t:"Helm", f:"", c:"Outils", d:"Gestionnaire de paquets de Kubernetes. Il distribue des charts, modeles de manifests parametrables, et les installe sous forme de releases."},
+  {t:"chart", f:"", c:"Outils", d:"Paquet Helm : un ensemble de modeles de manifests accompagnes de leurs valeurs par defaut."},
+  {t:"values", f:"", c:"Outils", d:"Fichier YAML surchargeant les valeurs par defaut d'un chart. bonus/confs/gitlab-values.yaml desactive ainsi tous les composants facultatifs de GitLab."},
+  {t:"release", f:"", c:"Outils", d:"Instance installee d'un chart Helm, identifiee par un nom dans un namespace donne."},
+  {t:"GitLab", f:"", c:"Outils", d:"Forge logicielle complete : depots Git, interface web, API et CI/CD. Deployee dans le cluster pour la partie bonus."},
+  {t:"Gitaly", f:"", c:"Outils", d:"Composant de GitLab qui detient reellement les depots Git sur disque et repond aux appels RPC des autres composants."},
+  {t:"Sidekiq", f:"", c:"Outils", d:"Composant de GitLab charge des taches de fond : courriels, hooks, indexation."},
+  {t:"toolbox", f:"", c:"Outils", d:"Pod de maintenance du chart GitLab. Il donne acces a gitlab-rails runner, la console d'administration, utilisee ici pour creer un jeton d'acces."},
+  {t:"Docker Hub", f:"", c:"Outils", d:"Registre public d'images de conteneurs. Heberge wil42/playground, l'application de demonstration du sujet, en versions v1 et v2."},
+  {t:"node-token", f:"", c:"Outils", d:"Secret genere par un serveur K3s et exige de tout agent souhaitant rejoindre le cluster. Situe dans /var/lib/rancher/k3s/server/node-token."},
+  {t:"API", f:"Application Programming Interface", c:"Outils", a:["APIs"], d:"Interface par laquelle deux logiciels dialoguent. Dans Kubernetes, tout passe par l'API server : kubectl, les controleurs et les kubelets ne font qu'appeler cette API."},
+  {t:"REST", f:"REpresentational State Transfer", c:"Outils", d:"Style d'API fonde sur HTTP, ou chaque ressource possede une adresse et se manipule par les verbes GET, POST, PUT et DELETE."},
+  {t:"RPC", f:"Remote Procedure Call", c:"Outils", d:"Appel de procedure a distance : un programme appelle une fonction executee sur une autre machine. Gitaly expose ses operations Git de cette maniere."},
+  {t:"CLI", f:"Command Line Interface", c:"Outils", d:"Interface en ligne de commande. kubectl, k3d, argocd, helm et vagrant en sont."},
+  {t:"YAML", f:"YAML Ain't Markup Language", c:"Outils", d:"Format de description de donnees fonde sur l'indentation. Format standard des manifests Kubernetes. L'indentation est significative : une tabulation y est interdite."},
+  {t:"JSON", f:"JavaScript Object Notation", c:"Outils", d:"Format d'echange de donnees. L'API Kubernetes parle JSON ; le YAML des manifests y est converti avant envoi."},
+
+  /* ---------- Systeme ---------- */
+  {t:"CPU", f:"Central Processing Unit", c:"Systeme", d:"Processeur. Le sujet impose une seule unite par machine virtuelle dans la partie 1."},
+  {t:"RAM", f:"Random Access Memory", c:"Systeme", d:"Memoire vive. Le sujet impose 512 ou 1024 Mo par machine virtuelle dans la partie 1."},
+  {t:"LTS", f:"Long Term Support", c:"Systeme", d:"Version d'une distribution beneficiant d'un support prolonge. Ubuntu publie une LTS tous les deux ans, en avril des annees paires."},
+  {t:"apt", f:"Advanced Package Tool", c:"Systeme", d:"Gestionnaire de paquets de Debian et Ubuntu. Les composants d'un depot varient : contrib sur Debian, multiverse sur Ubuntu, ce qui explique le traitement different dans le script d'installation."},
+  {t:"systemd", f:"", c:"Systeme", d:"Gestionnaire de services des distributions Linux modernes. K3s s'y installe sous les noms k3s et k3s-agent, consultables avec journalctl."},
+  {t:"DKMS", f:"Dynamic Kernel Module Support", c:"Systeme", d:"Mecanisme recompilant automatiquement un module noyau apres une mise a jour du noyau. Necessaire au module vboxdrv de VirtualBox."},
+  {t:"MOK", f:"Machine Owner Key", c:"Systeme", d:"Cle utilisee pour signer un module noyau quand Secure Boot est actif. Sans enrolement de cette cle, le module vboxdrv est refuse au chargement."},
+  {t:"tmpfs", f:"", c:"Systeme", d:"Systeme de fichiers stocke en memoire vive. Sur certaines distributions /tmp en est un : y placer des disques de machines virtuelles consomme de la RAM et sature vite."},
+  {t:"ufw", f:"Uncomplicated Firewall", c:"Systeme", d:"Interface simplifiee du pare-feu Linux. Inactif par defaut sur les box Vagrant, d'ou les appels conditionnels dans les scripts."},
+  {t:"GPG", f:"GNU Privacy Guard", c:"Systeme", d:"Outil de chiffrement et de signature. Sert a verifier l'authenticite des depots de paquets ajoutes au systeme."},
+  {t:"base64", f:"", c:"Systeme", d:"Encodage de donnees binaires en caracteres imprimables. Les Secrets Kubernetes l'utilisent : c'est un encodage, pas un chiffrement, et il se decode avec base64 -d."}
+];
+
+(function () {
+  "use strict";
+
+  var slug = function (s) {
+    return s.toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
+  /* ---------- Index des termes, alias compris ---------- */
+  var byTerm = {};
+  LEXIQUE.forEach(function (e) {
+    e.id = "lex-" + slug(e.t);
+    byTerm[e.t.toLowerCase()] = e;
+    (e.a || []).forEach(function (al) { byTerm[al.toLowerCase()] = e; });
+  });
+
+  /* ---------- Rendu du lexique ---------- */
+  var list = document.getElementById("lex-list");
+  var count = document.getElementById("lex-count");
+
+  var ordered = LEXIQUE.slice().sort(function (a, b) {
+    return a.t.localeCompare(b.t, "fr", { sensitivity: "base" });
+  });
+
+  ordered.forEach(function (e) {
+    var item = document.createElement("div");
+    item.className = "lex-item";
+    item.id = e.id;
+    item.dataset.cat = e.c;
+    item.dataset.hay = (e.t + " " + (e.f || "") + " " + e.d).toLowerCase();
+
+    var dt = document.createElement("dt");
+    var term = document.createElement("span");
+    term.className = "term";
+    term.textContent = e.t;
+    dt.appendChild(term);
+    if (e.f) {
+      var full = document.createElement("span");
+      full.className = "full";
+      full.textContent = e.f;
+      dt.appendChild(full);
+    }
+    var cat = document.createElement("span");
+    cat.className = "cat";
+    cat.textContent = e.c;
+    dt.appendChild(cat);
+
+    var dd = document.createElement("dd");
+    dd.textContent = e.d;
+
+    item.appendChild(dt);
+    item.appendChild(dd);
+    list.appendChild(item);
+  });
+
+  /* ---------- Filtres ---------- */
+  var search = document.getElementById("lex-search");
+  var chips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+  var activeCat = "*";
+
+  function applyFilter() {
+    var q = (search.value || "").trim().toLowerCase();
+    var shown = 0;
+    Array.prototype.forEach.call(list.children, function (item) {
+      var okCat = activeCat === "*" || item.dataset.cat === activeCat;
+      var okTxt = !q || item.dataset.hay.indexOf(q) !== -1;
+      var visible = okCat && okTxt;
+      item.hidden = !visible;
+      if (visible) shown++;
+    });
+    count.textContent = shown + " entree" + (shown > 1 ? "s" : "") +
+      " sur " + LEXIQUE.length;
+  }
+
+  search.addEventListener("input", applyFilter);
+  chips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      activeCat = chip.dataset.cat;
+      chips.forEach(function (c) {
+        c.setAttribute("aria-pressed", String(c === chip));
+      });
+      applyFilter();
+    });
+  });
+  applyFilter();
+
+  /* ---------- Bulles d'information sur les acronymes ---------- */
+  var openTip = null;
+
+  function hideTip() {
+    if (openTip) { openTip.classList.remove("open"); openTip = null; }
+  }
+
+  function showTip(ab) {
+    if (openTip && openTip !== ab) hideTip();
+    ab.classList.add("open");
+    openTip = ab;
+    var tip = ab.querySelector(".tip");
+    if (!tip) return;
+    var r = ab.getBoundingClientRect();
+    var w = tip.offsetWidth, h = tip.offsetHeight, m = 10;
+    var left = r.left + r.width / 2 - w / 2;
+    left = Math.max(m, Math.min(left, window.innerWidth - w - m));
+    var top = r.top - h - 8;
+    if (top < m) top = r.bottom + 8;          // bascule sous le terme si pas de place
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+
+  var unknown = [];
+  Array.prototype.forEach.call(document.querySelectorAll("abbr"), function (ab, i) {
+    var key = ab.textContent.trim().toLowerCase();
+    var e = byTerm[key];
+    if (!e) { ab.setAttribute("data-unknown", ""); unknown.push(ab.textContent.trim()); return; }
+
+    ab.setAttribute("data-def", "");
+    ab.setAttribute("tabindex", "0");
+
+    var tip = document.createElement("span");
+    tip.className = "tip";
+    tip.id = "tip-" + i;
+    tip.setAttribute("role", "tooltip");
+    if (e.f) {
+      var b = document.createElement("b");
+      b.textContent = e.f;
+      tip.appendChild(b);
+    }
+    tip.appendChild(document.createTextNode(e.d));
+    ab.appendChild(tip);
+    ab.setAttribute("aria-describedby", tip.id);
+
+    ab.addEventListener("mouseenter", function () { showTip(ab); });
+    ab.addEventListener("mouseleave", hideTip);
+    ab.addEventListener("focus", function () { showTip(ab); });
+    ab.addEventListener("blur", hideTip);
+    ab.addEventListener("click", function () {
+      hideTip();
+      var target = document.getElementById(e.id);
+      if (!target) return;
+      if (target.hidden) { search.value = ""; activeCat = "*"; chips.forEach(function (c) { c.setAttribute("aria-pressed", String(c.dataset.cat === "*")); }); applyFilter(); }
+      location.hash = "#" + e.id;
+      target.classList.add("flash");
+      setTimeout(function () { target.classList.remove("flash"); }, 1600);
+    });
+    ab.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") { hideTip(); ab.blur(); }
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ab.click(); }
+    });
+  });
+
+  window.addEventListener("scroll", hideTip, { passive: true });
+  window.addEventListener("resize", hideTip, { passive: true });
+
+  if (unknown.length) {
+    console.warn("Termes sans entree de lexique :", unknown.join(", "));
+  }
+
+  /* ---------- Suivi de la section courante dans le sommaire ---------- */
+  var links = {};
+  Array.prototype.forEach.call(document.querySelectorAll(".index a[href^='#']"), function (a) {
+    links[a.getAttribute("href").slice(1)] = a;
+  });
+  var sections = Array.prototype.slice.call(document.querySelectorAll("section.sec"));
+  var visible = {};
+
+  if ("IntersectionObserver" in window) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { visible[en.target.id] = en.isIntersecting; });
+      var current = null;
+      for (var i = 0; i < sections.length; i++) {
+        if (visible[sections[i].id]) { current = sections[i].id; break; }
+      }
+      Object.keys(links).forEach(function (id) {
+        if (id === current) links[id].setAttribute("aria-current", "true");
+        else links[id].removeAttribute("aria-current");
+      });
+    }, { rootMargin: "-80px 0px -70% 0px" });
+    sections.forEach(function (s) { obs.observe(s); });
+  }
+
+  /* ---------- Theme ---------- */
+  var modes = ["auto", "light", "dark"];
+  var labels = { auto: "Theme : auto", light: "Theme : clair", dark: "Theme : sombre" };
+  var btn = document.getElementById("theme-toggle");
+  var stored = null;
+  try { stored = localStorage.getItem("iot-doc-theme"); } catch (err) { stored = null; }
+  var mode = modes.indexOf(stored) !== -1 ? stored : "auto";
+
+  function applyTheme() {
+    if (mode === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", mode);
+    btn.textContent = labels[mode];
+    try { localStorage.setItem("iot-doc-theme", mode); } catch (err) { /* file:// restreint */ }
+  }
+  btn.addEventListener("click", function () {
+    mode = modes[(modes.indexOf(mode) + 1) % modes.length];
+    applyTheme();
+  });
+  applyTheme();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Ubuntu 26.04 LTS : derniere version stable de la distribution (exigence du sujet).
+BOX         = "bento/ubuntu-26.04"
+
+SERVER_NAME = "chillionS"
+WORKER_NAME = "chillionSW"
+SERVER_IP   = "192.168.56.110"
+WORKER_IP   = "192.168.56.111"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = BOX
+
+  # Ressources minimales imposees par le sujet : 1 CPU, 512 Mo (ou 1024).
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 1024
+    vb.cpus   = 1
+  end
+
+  # Machine 1 : K3s en mode controller (server)
+  config.vm.define SERVER_NAME do |server|
+    server.vm.hostname = SERVER_NAME
+    server.vm.network "private_network", ip: SERVER_IP
+
+    server.vm.provider "virtualbox" do |vb|
+      vb.name = SERVER_NAME
+    end
+
+    server.vm.provision "shell",
+      path: "scripts/install_k3s_server.sh",
+      env: { "NODE_IP" => SERVER_IP }
+  end
+
+  # Machine 2 : K3s en mode agent (worker)
+  # Le token de jonction est publie par le serveur dans le dossier synchronise
+  # /vagrant/confs/node-token : ni cle SSH partagee, ni secret en dur.
+  config.vm.define WORKER_NAME do |worker|
+    worker.vm.hostname = WORKER_NAME
+    worker.vm.network "private_network", ip: WORKER_IP
+
+    worker.vm.provider "virtualbox" do |vb|
+      vb.name = WORKER_NAME
+    end
+
+    worker.vm.provision "shell",
+      path: "scripts/install_k3s_agent.sh",
+      env: { "NODE_IP" => WORKER_IP, "SERVER_IP" => SERVER_IP }
+  end
+end

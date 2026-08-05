@@ -1,0 +1,58 @@
+# GitLab Helm chart - Configuration minimale pour le bonus IoT
+# Desactive les composants non essentiels pour reduire les ressources
+
+global:
+  hosts:
+    domain: gitlab.local
+    https: false
+  ingress:
+    configureCertmanager: false
+    class: traefik
+    enabled: false
+    tls:
+      enabled: false
+  kas:
+    enabled: false
+  pages:
+    enabled: false
+  appConfig:
+    lfs:
+      enabled: false
+    artifacts:
+      enabled: false
+    uploads:
+      enabled: false
+    packages:
+      enabled: false
+    terraformState:
+      enabled: false
+
+# Desactiver les sous-charts non necessaires
+certmanager:
+  install: false
+
+nginx-ingress:
+  enabled: false
+
+prometheus:
+  install: false
+
+gitlab-runner:
+  install: false
+
+registry:
+  enabled: false
+
+# Configuration minimale des composants GitLab
+gitlab:
+  webservice:
+    minReplicas: 1
+    maxReplicas: 1
+  sidekiq:
+    minReplicas: 1
+    maxReplicas: 1
+  gitlab-shell:
+    minReplicas: 1
+    maxReplicas: 1
+  kas:
+    enabled: false

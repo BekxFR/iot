@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Ubuntu 26.04 LTS : derniere version stable de la distribution (exigence du sujet).
+BOX         = "bento/ubuntu-26.04"
+
+SERVER_NAME = "chillionS"
+SERVER_IP   = "192.168.56.110"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = BOX
+
+  # Machine unique de la partie 2 : K3s en mode server.
+  config.vm.define SERVER_NAME do |server|
+    server.vm.hostname = SERVER_NAME
+    server.vm.network "private_network", ip: SERVER_IP
+
+    server.vm.provider "virtualbox" do |vb|
+      vb.name   = SERVER_NAME
+      vb.memory = 1024
+      vb.cpus   = 1
+    end
+
+    # Les manifests sont lus depuis le dossier synchronise /vagrant/confs.
+    server.vm.provision "shell",
+      path: "scripts/install_k3s.sh",
+      env: { "NODE_IP" => SERVER_IP }
+
+    server.vm.provision "shell",
+      path: "scripts/setup_apps.sh",
+      env: { "NODE_IP" => SERVER_IP }
+  end
+end
