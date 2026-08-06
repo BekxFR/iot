@@ -68,7 +68,12 @@ cd p2 && vagrant ssh chillionS -c "/vagrant/scripts/test_apps.sh"
 
 ## Vérification
 
+Les trois applications sont déployées dans le namespace `default` : c'est ce que
+montre la sortie de référence du sujet, et `kubectl get all` affiche donc
+directement les 3 deployments, leurs pods et leurs services (app2 en 3/3).
+
 ```bash
-cd p2 && vagrant ssh chillionS -c "kubectl get pods -n apps"
-cd p2 && vagrant ssh chillionS -c "kubectl get ingress -n apps"
+cd p2 && vagrant ssh chillionS -c "kubectl get nodes -o wide"
+cd p2 && vagrant ssh chillionS -c "kubectl get all"
+cd p2 && vagrant ssh chillionS -c "kubectl get ingress"
 ```

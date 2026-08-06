@@ -20,7 +20,10 @@ Cette partie met en place un cluster Kubernetes K3s distribué sur 2 machines vi
 ### Configuration réseau
 
 - Réseau privé : `192.168.56.0/24`
-- Interface réseau : `eth1` (private_network)
+- Interface réseau : seconde interface créée par `private_network`. Son nom
+  dépend de la distribution (`enp0s8` sur Ubuntu 26.04, `eth1` sur des boxes
+  plus anciennes) : les scripts la déduisent de l'IP au lieu de la coder en dur.
+  Pour l'afficher pendant l'évaluation : `ip a`
 - Communication SSH sans mot de passe configurée
 
 ## Conformité aux consignes
@@ -152,7 +155,8 @@ chillionsw  Ready    <none>                 1m    v1.3x.x+k3s1   192.168.56.111 
 - **CNI** : Flannel (par défaut avec K3s)
 - **Service CIDR** : `10.43.0.0/16`
 - **Cluster CIDR** : `10.42.0.0/16`
-- **Interface** : `eth1` (réseau privé Vagrant)
+- **Interface** : seconde interface du réseau privé Vagrant (`enp0s8` sur
+  Ubuntu 26.04), détectée à partir de l'IP et passée à `--flannel-iface`
 
 ## Gestion du cluster
 
@@ -203,9 +207,17 @@ vagrant ssh chillionSW -c "sudo systemctl status k3s-agent"
 
 ### Firewall
 
-- Port 6443 ouvert pour l'API Kubernetes
-- Port 22 ouvert pour SSH
-- Communication inter-nodes autorisée
+`ufw` est inactif par défaut sur la box utilisée : aucun filtrage n'est appliqué
+entre les deux machines. Les scripts se contentent d'autoriser explicitement les
+ports indispensables, au cas où le pare-feu serait activé sur la machine hôte
+d'évaluation :
+
+- Port 22 (SSH) sur les deux machines
+- Port 6443 (API Kubernetes) sur le server
+
+Si `ufw` devait être activé, il faudrait ouvrir en plus le port 8472/UDP (VXLAN
+flannel) et le port 10250/TCP (kubelet), sans quoi le trafic inter-nodes et les
+commandes `kubectl logs` / `kubectl exec` cesseraient de fonctionner.
 
 ## Tests et validation
 

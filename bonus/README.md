@@ -121,6 +121,81 @@ kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181
 # Password: kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 -d
 ```
 
+## Creer un nouveau depot et y pousser du code
+
+La grille d'evaluation demande de creer un **nouveau** depot pendant la soutenance,
+d'y ajouter du code, et de verifier sur GitLab que l'operation a reussi. Ce depot
+de demonstration est independant de `iot-app`, celui qu'Argo CD synchronise : il
+sert uniquement a prouver que l'instance GitLab est pleinement fonctionnelle.
+
+Les deux variantes ci-dessous supposent le port-forward actif :
+
+```bash
+kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181 &
+GITLAB_PWD=$(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 -d)
+echo "root / $GITLAB_PWD"
+```
+
+### Variante A - API et git en ligne de commande
+
+```bash
+# 1. Jeton d'acces (le meme mecanisme que configure_gitlab.sh)
+TOOLBOX=$(kubectl get pods -n gitlab -l app=toolbox -o jsonpath='{.items[0].metadata.name}')
+TOKEN=$(kubectl exec "$TOOLBOX" -n gitlab -c toolbox -- gitlab-rails runner "
+puts User.find_by_username('root').personal_access_tokens.create!(
+  scopes: [:api, :read_repository, :write_repository],
+  name: 'demo-defense', expires_at: 30.days.from_now).token" | tail -1 | tr -d '\r\n')
+
+# 2. Creation du depot
+curl -s -X POST "http://localhost:30080/api/v4/projects" \
+    -H "PRIVATE-TOKEN: $TOKEN" \
+    -d "name=demo-defense&visibility=public" | jq '{id, path_with_namespace, web_url}'
+
+# 3. Ajout de code et push
+mkdir -p /tmp/demo-defense && cd /tmp/demo-defense && git init -b main
+echo 'print("bonjour depuis GitLab local")' > hello.py
+git config user.email "root@gitlab.local" && git config user.name "Administrator"
+git add . && git commit -m "Ajout de hello.py"
+git remote add origin "http://root:${TOKEN}@localhost:30080/root/demo-defense.git"
+git push -u origin main
+
+# 4. Verification cote GitLab : le fichier doit apparaitre dans l'arbre du depot
+curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/tree" \
+    -H "PRIVATE-TOKEN: $TOKEN" | jq '.[].name'
+curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/commits" \
+    -H "PRIVATE-TOKEN: $TOKEN" | jq '.[0] | {title, author_name}'
+```
+
+### Variante B - interface web
+
+1. Ouvrir `http://localhost:30080` et se connecter avec `root` et le mot de passe recupere plus haut.
+2. **New project** -> **Create blank project** : nom `demo-defense`, visibilite *Public*, cocher
+   *Initialize repository with a README*.
+3. Dans le depot cree : **+** -> **New file**, saisir un fichier (par exemple `hello.py`),
+   puis **Commit changes**.
+4. Le fichier et le commit apparaissent immediatement dans l'arborescence du depot et dans
+   l'onglet **Commits** : l'operation est verifiee cote GitLab.
+
+> **A tester avant la soutenance.** Le chart est configure avec
+> `global.hosts.domain: gitlab.local` : l'URL externe de GitLab est
+> `http://gitlab.gitlab.local`, et certaines redirections (apres connexion
+> notamment) peuvent pointer vers ce nom plutot que vers `localhost:30080`.
+> Si le navigateur part sur une adresse injoignable, deux solutions :
+> utiliser la variante A, ou faire correspondre les deux noms :
+>
+> ```bash
+> echo "127.0.0.1 gitlab.gitlab.local" | sudo tee -a /etc/hosts
+> sudo kubectl port-forward svc/gitlab-webservice-default -n gitlab 80:8181
+> # puis http://gitlab.gitlab.local
+> ```
+
+### Nettoyage du depot de demonstration
+
+```bash
+curl -s -X DELETE "http://localhost:30080/api/v4/projects/root%2Fdemo-defense" \
+    -H "PRIVATE-TOKEN: $TOKEN"
+```
+
 ## Demonstration GitOps v1 -> v2
 
 1. **Port-forward vers GitLab** :

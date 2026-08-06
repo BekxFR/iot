@@ -19,7 +19,9 @@ for i in $(seq 1 60); do
     sleep 5
 done
 
-kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
+# Les objets sont crees dans le namespace 'default' : c'est ce que montre la
+# sortie de reference du sujet, et 'kubectl get all' suffit alors a voir les
+# trois applications sans avoir a preciser de namespace.
 
 echo "Deploiement de app1 (1 replica)..."
 kubectl apply -f "$CONFS/app1-deployment.yaml"
@@ -39,13 +41,12 @@ echo "Configuration de l'Ingress..."
 kubectl apply -f "$CONFS/ingress.yaml"
 
 echo "Attente du demarrage des applications..."
-kubectl rollout status deployment/app1 -n apps --timeout=300s
-kubectl rollout status deployment/app2 -n apps --timeout=300s
-kubectl rollout status deployment/app3 -n apps --timeout=300s
+kubectl rollout status deployment/app1 --timeout=300s
+kubectl rollout status deployment/app2 --timeout=300s
+kubectl rollout status deployment/app3 --timeout=300s
 
-kubectl get pods -n apps -o wide
-kubectl get services -n apps
-kubectl get ingress -n apps
+kubectl get all
+kubectl get ingress
 
 echo "[OK] Applications deployees."
 echo "  curl -H 'Host: app1.com' http://$NODE_IP  -> app1"

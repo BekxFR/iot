@@ -27,6 +27,6 @@ test_url "app2.com" "Application 2"
 test_url "default" "Application 3"
 
 echo "Statut du cluster:"
-kubectl get pods -n apps
-kubectl get services -n apps
-kubectl get ingress -n apps
+kubectl get nodes -o wide
+kubectl get all
+kubectl get ingress

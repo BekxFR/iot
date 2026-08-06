@@ -1104,7 +1104,7 @@ html { scroll-behavior: smooth; }
         <tbody>
           <tr><td><strong>Namespace</strong></td>
             <td>Cloisonnement logique des objets a l'interieur d'un meme cluster.</td>
-            <td><code>argocd</code>, <code>dev</code>, <code>gitlab</code>, <code>apps</code></td></tr>
+            <td><code>argocd</code>, <code>dev</code>, <code>gitlab</code> ; la partie 2 reste dans <code>default</code></td></tr>
           <tr><td><strong>Pod</strong></td>
             <td>Plus petite unite deployable : un ou plusieurs conteneurs partageant reseau et volumes.</td>
             <td>Une instance de <code>wil42/playground</code> ou de <code>nginx</code></td></tr>
@@ -1553,6 +1553,27 @@ html { scroll-behavior: smooth; }
       charge en permanence de faire converger le cluster vers ce contenu.
     </p>
 
+    <h3>Integration continue, livraison continue, GitOps</h3>
+    <p>
+      L'<strong>integration continue</strong> (<abbr>CI</abbr>) est la pratique qui consiste a fusionner
+      frequemment le travail de chacun dans une branche commune, et a faire verifier automatiquement
+      chaque commit par un serveur : compilation, tests, analyse statique. Le but est de detecter une
+      regression en minutes plutot qu'en semaines, et de garder la branche principale toujours
+      deployable. La <strong>livraison continue</strong> (<abbr>CD</abbr>) prolonge la chaine : une
+      fois l'artefact valide, il est publie dans un registre puis deploye automatiquement dans un
+      environnement.
+    </p>
+    <p>
+      Argo CD ne fait pas de <abbr>CI</abbr> : il ne compile rien, n'execute aucun test et ne
+      construit aucune image. C'est un outil de <abbr>CD</abbr>, et plus precisement un agent
+      <abbr>GitOps</abbr> : il vit dans le cluster, surveille un depot Git contenant des manifests
+      Kubernetes, et fait converger le cluster vers leur contenu. Dans ce projet, l'etape
+      <abbr>CI</abbr> n'existe pas : l'image <code>wil42/playground</code> est deja construite et
+      publiee sur <abbr>Docker Hub</abbr> en versions v1 et v2. Ce qui est demontre en soutenance,
+      c'est la moitie <abbr>CD</abbr> de la chaine : un commit dans le depot suffit a changer la
+      version qui tourne dans le cluster, sans qu'aucune commande ne soit lancee sur le cluster.
+    </p>
+
     <h3>Les quatre principes</h3>
     <ol>
       <li><strong>Declaratif</strong> : tout le systeme est decrit par des fichiers, pas par des commandes.</li>
@@ -1716,6 +1737,27 @@ spec:
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d</code></pre>
     </div>
+    <p>
+      La grille demande de naviguer dans l'interface et d'en expliquer le fonctionnement. Quatre
+      reperes suffisent :
+    </p>
+    <ul>
+      <li><strong>La tuile de l'application</strong> porte deux etats independants.
+        <em>Sync status</em> compare le depot au cluster : <code>Synced</code> ou
+        <code>OutOfSync</code>. <em>Health status</em> juge l'etat reel des objets :
+        <code>Healthy</code>, <code>Progressing</code>, <code>Degraded</code>. Une application
+        peut etre <code>Synced</code> et <code>Degraded</code> : le depot a bien ete applique,
+        mais le pod ne demarre pas.</li>
+      <li><strong>L'arbre des ressources</strong>, en cliquant sur l'application, montre ce qu'Argo
+        CD a cree a partir du depot : Deployment, ReplicaSet, Pods, Service, Ingress. C'est la
+        traduction visuelle de la hierarchie decrite en <a href="#objets">section 06</a>.</li>
+      <li><strong>APP DIFF</strong> affiche, objet par objet, l'ecart entre le depot et le cluster.
+        C'est l'ecran a montrer juste apres un <code>git push</code>, avant la synchronisation.</li>
+      <li><strong>REFRESH</strong> force la relecture du depot sans attendre les trois minutes de
+        polling ; <strong>SYNC</strong> applique les manifests. Avec
+        <code>syncPolicy.automated</code>, un simple REFRESH suffit : la synchronisation part
+        toute seule.</li>
+    </ul>
   </section>
 
   <!-- ====================================================== -->
@@ -1841,6 +1883,8 @@ cd p1 &amp;&amp; vagrant ssh chillionS -c "kubectl get nodes -o wide"
     <p>
       Les noms de noeuds apparaissent en minuscules : Kubernetes normalise les noms d'objets,
       alors que le nom de la machine VirtualBox et le hostname respectent bien la casse demandee.
+      La lecture colonne par colonne de cette sortie, que la grille demande d'expliquer, figure
+      dans <a href="#sorties">Lire les sorties demandees en soutenance</a>.
     </p>
 
     <h3>p2 - K3s et trois applications</h3>
@@ -1855,7 +1899,9 @@ cd p1 &amp;&amp; vagrant ssh chillionS -c "kubectl get nodes -o wide"
       Les trois applications sont des <code>nginx:alpine</code> servant une page fournie par une
       ConfigMap : aucune image a construire, aucun registre a alimenter, et la difference entre les
       applications est visible d'un coup d'oeil. Le deploiement se fait au provisionnement, depuis
-      les manifests lus dans le dossier synchronise.
+      les manifests lus dans le dossier synchronise. Les objets sont crees dans le namespace
+      <code>default</code>, de sorte que <code>kubectl get all</code> montre directement les trois
+      deployments, leurs pods et leurs services (voir <a href="#choix">section 13</a>).
     </p>
     <div class="codeblock">
       <div class="fname"><span>demonstration p2</span><span>depuis l'hote</span></div>
@@ -1866,10 +1912,18 @@ curl -H "Host: app1.com" http://192.168.56.110    # Application 1
 curl -H "Host: app2.com" http://192.168.56.110    # Application 2
 curl http://192.168.56.110                        # Application 3 (defaut)
 
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get ingress -n apps"
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get deploy -n apps"
-# app2 doit afficher READY 3/3</code></pre>
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get nodes -o wide"
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get all"
+# app2 doit afficher READY 3/3
+
+# "montrez-moi votre Ingress" : la commande n'est pas donnee dans la grille
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get ingress"
+cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl describe ingress apps-ingress"</code></pre>
     </div>
+    <p>
+      La lecture de ces sorties est detaillee plus bas, dans
+      <a href="#sorties">Lire les sorties demandees en soutenance</a>.
+    </p>
 
     <h3>p3 - K3d et Argo CD</h3>
     <div class="box req">
@@ -1890,6 +1944,24 @@ cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get deploy -n apps"
           <tr><td>4</td><td><code>make p3-test</code></td><td>Verifie le cluster, les namespaces, l'image deployee et la reponse sur le port 8888.</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="box ok">
+      <span class="tag">Les deux verifications d'identite de la grille</span>
+      <p>
+        <strong>Le nom du depot.</strong> Le depot est
+        <a href="https://github.com/BekxFR/trobert-iot-argocd-app">BekxFR/trobert-iot-argocd-app</a> :
+        <code>trobert</code> est le login d'un membre du groupe, ce que le sujet impose
+        (<em>"a GitHub repository whose name contains the login of one of the group members"</em>).
+        L'exigence porte sur le <em>nom</em> du depot, pas sur le compte qui l'heberge. Les machines
+        des parties 1 et 2 sont nommees a partir d'un autre login du groupe,
+        <code>chillion</code> : le sujet demande un login <em>d'un</em> membre, pas le meme partout.
+      </p>
+      <p>
+        <strong>L'image.</strong> Elle vient de Docker Hub :
+        <a href="https://hub.docker.com/r/wil42/playground">wil42/playground</a>, avec les deux tags
+        <code>v1</code> et <code>v2</code> exiges. Aucune image n'est construite par le projet, il
+        n'y a donc pas de depot Docker Hub personnel a montrer.
+      </p>
     </div>
     <div class="codeblock">
       <div class="fname"><span>demonstration p3</span><span>bascule de version</span></div>
@@ -1932,6 +2004,59 @@ git clone http://root:&lt;mot-de-passe&gt;@localhost:30080/root/iot-app.git /tmp
 cd /tmp/iot-app &amp;&amp; sed -i 's/:v1/:v2/' deployment.yaml
 git commit -am "v2" &amp;&amp; git push</code></pre>
     </div>
+    <h4>Prouver que GitLab fonctionne : creer un depot et y pousser du code</h4>
+    <p>
+      La soutenance demande de creer un <em>nouveau</em> depot, d'y ajouter du code, puis de verifier
+      cote GitLab que l'operation a reussi. Ce depot de demonstration est independant de
+      <code>iot-app</code>, celui qu'Argo CD synchronise : il ne sert qu'a prouver que l'instance est
+      pleinement fonctionnelle. Deux chemins menent au meme resultat, l'un en ligne de commande,
+      l'autre dans le navigateur.
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>variante A</span><span>API GitLab et git</span></div>
+<pre><code>kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181 &amp;
+
+# jeton d'acces, par le meme mecanisme que configure_gitlab.sh
+TOOLBOX=$(kubectl get pods -n gitlab -l app=toolbox -o jsonpath='{.items[0].metadata.name}')
+TOKEN=$(kubectl exec "$TOOLBOX" -n gitlab -c toolbox -- gitlab-rails runner "
+puts User.find_by_username('root').personal_access_tokens.create!(
+  scopes: [:api, :read_repository, :write_repository],
+  name: 'demo-defense', expires_at: 30.days.from_now).token" | tail -1 | tr -d '\r\n')
+
+# creation du depot
+curl -s -X POST "http://localhost:30080/api/v4/projects" \
+    -H "PRIVATE-TOKEN: $TOKEN" -d "name=demo-defense&amp;visibility=public" | jq '{id, web_url}'
+
+# code et push
+mkdir -p /tmp/demo-defense &amp;&amp; cd /tmp/demo-defense &amp;&amp; git init -b main
+echo 'print("bonjour depuis GitLab local")' &gt; hello.py
+git add . &amp;&amp; git commit -m "Ajout de hello.py"
+git remote add origin "http://root:${TOKEN}@localhost:30080/root/demo-defense.git"
+git push -u origin main
+
+# verification cote GitLab
+curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/tree" \
+    -H "PRIVATE-TOKEN: $TOKEN" | jq '.[].name'</code></pre>
+    </div>
+    <p>
+      Variante B, dans le navigateur : ouvrir <code>http://localhost:30080</code>, se connecter avec
+      <code>root</code> et le mot de passe du secret
+      <code>gitlab-gitlab-initial-root-password</code>, puis <strong>New project</strong> -&gt;
+      <strong>Create blank project</strong>, et enfin <strong>+</strong> -&gt;
+      <strong>New file</strong> suivi de <strong>Commit changes</strong>. Le fichier et le commit
+      apparaissent aussitot dans l'arborescence et dans l'onglet <em>Commits</em>.
+    </p>
+    <div class="box warn">
+      <span class="tag">A tester avant la soutenance</span>
+      <p>
+        Le chart declare <code>global.hosts.domain: gitlab.local</code> : l'adresse externe
+        de GitLab est <code>http://gitlab.gitlab.local</code>, et certaines redirections peuvent
+        pointer vers ce nom plutot que vers <code>localhost:30080</code>. Si le navigateur part sur
+        une adresse injoignable, utiliser la variante A, ou faire correspondre les deux noms :
+        <code>echo "127.0.0.1 gitlab.gitlab.local" | sudo tee -a /etc/hosts</code> puis
+        <code>sudo kubectl port-forward svc/gitlab-webservice-default -n gitlab 80:8181</code>.
+      </p>
+    </div>
     <div class="box warn">
       <span class="tag">Ressources</span>
       <p>
@@ -1940,6 +2065,133 @@ git commit -am "v2" &amp;&amp; git push</code></pre>
         <code>gitlab-values.yaml</code> desactive tous les composants facultatifs.
       </p>
     </div>
+
+    <h3 id="sorties">Lire les sorties demandees en soutenance</h3>
+    <p>
+      Afficher la bonne sortie ne suffit pas : le sujet demande explicitement de l'expliquer, en
+      partie 1 (<em>"an output similar to the one given as an example in the subject is expected.
+      The evaluated group must explain to you the output"</em>) comme en partie 2
+      (<em>"the evaluated group must explain to you each output"</em>).
+    </p>
+
+    <h4>Prouver que la machine utilise bien K3s</h4>
+    <div class="codeblock">
+      <div class="fname"><span>terminal</span><span>dans la machine, p1 comme p2</span></div>
+<pre><code>systemctl status k3s          # sur chillionS : service actif, ligne de commande visible
+systemctl status k3s-agent    # sur chillionSW : le service de l'agent, pas le meme unit
+k3s --version                 # ex. k3s version v1.3x.x+k3s1
+kubectl version               # la version du serveur porte le suffixe +k3s1
+
+# la ligne de commande du service montre les options du provisionnement :
+systemctl cat k3s | grep ExecStart -A3    # --node-ip et --flannel-iface</code></pre>
+    </div>
+    <p>
+      Le suffixe <code>+k3s1</code> de la version est la preuve la plus directe : c'est la
+      distribution K3s, et non un Kubernetes installe autrement. Le fait que
+      <code>chillionSW</code> expose <code>k3s-agent</code> et non <code>k3s</code> prouve le mode
+      agent exige par le sujet.
+    </p>
+
+    <h4>kubectl get nodes -o wide, colonne par colonne</h4>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Colonne</th><th>Ce qu'elle dit</th></tr></thead>
+        <tbody>
+          <tr><td><code>NAME</code></td>
+            <td>Nom du noeud, derive du hostname et normalise en minuscules par Kubernetes.</td></tr>
+          <tr><td><code>STATUS</code></td>
+            <td><code>Ready</code> signifie que le kubelet du noeud repond et que ses conditions
+              de sante sont bonnes ; il peut donc recevoir des pods.</td></tr>
+          <tr><td><code>ROLES</code></td>
+            <td><code>control-plane,master</code> sur <code>chillions</code> : ce noeud porte le
+              plan de controle. <code>&lt;none&gt;</code> sur <code>chillionsw</code> : c'est un
+              agent, il n'execute que le kubelet et le runtime. C'est exactement la repartition
+              server / agent demandee.</td></tr>
+          <tr><td><code>AGE</code></td>
+            <td>Temps ecoule depuis l'enregistrement du noeud. L'agent est logiquement plus jeune
+              que le server, puisqu'il rejoint un cluster deja demarre.</td></tr>
+          <tr><td><code>VERSION</code></td>
+            <td>Version du kubelet, suffixee <code>+k3s1</code> : c'est la marque de K3s.</td></tr>
+          <tr><td><code>INTERNAL-IP</code></td>
+            <td>Adresse par laquelle le noeud est joint dans le cluster. C'est la valeur passee par
+              <code>--node-ip</code>, donc <code>192.168.56.110</code> et
+              <code>192.168.56.111</code> : la preuve que le cluster utilise le reseau prive impose
+              par le sujet, et non l'interface NAT.</td></tr>
+          <tr><td><code>EXTERNAL-IP</code></td>
+            <td><code>&lt;none&gt;</code> : normal, ces machines n'ont pas d'adresse publique
+              declaree au fournisseur cloud.</td></tr>
+          <tr><td><code>OS-IMAGE</code>, <code>KERNEL-VERSION</code></td>
+            <td>Distribution et noyau du noeud : c'est ici que se lit <code>Ubuntu 26.04 LTS</code>,
+              la derniere version stable exigee.</td></tr>
+          <tr><td><code>CONTAINER-RUNTIME</code></td>
+            <td><code>containerd</code>, embarque dans le binaire K3s : il n'y a pas de Docker
+              dans les machines des parties 1 et 2.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>kubectl get all, ligne par ligne</h4>
+    <p>
+      <code>kubectl get all</code> ne montre pas tout : il liste les types courants du namespace
+      courant, ici <code>default</code>. Quatre blocs se succedent, et ils decrivent la meme
+      application a quatre niveaux (voir la hierarchie en <a href="#objets">section 06</a>).
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Bloc</th><th>Lecture attendue</th></tr></thead>
+        <tbody>
+          <tr><td><code>pod/...</code></td>
+            <td>Les instances qui tournent : une pour app1, <strong>trois pour app2</strong>, une
+              pour app3, chacune en <code>1/1 Running</code>. Le suffixe aleatoire du nom vient du
+              ReplicaSet qui les a creees.</td></tr>
+          <tr><td><code>service/...</code></td>
+            <td>Les adresses stables devant ces pods : <code>app1-service</code>,
+              <code>app2-service</code>, <code>app3-service</code>, toutes en
+              <code>ClusterIP</code> sur le port 80, donc joignables uniquement depuis l'interieur
+              du cluster. <code>service/kubernetes</code> est toujours present : c'est l'
+              <abbr>API</abbr> server elle-meme, pas une quatrieme application.</td></tr>
+          <tr><td><code>deployment.apps/...</code></td>
+            <td>L'etat souhaite. La colonne <code>READY</code> affiche <code>3/3</code> pour app2 :
+              trois pods demandes, trois pods disponibles. C'est la preuve directe de l'exigence
+              des 3 replicas.</td></tr>
+          <tr><td><code>replicaset.apps/...</code></td>
+            <td>L'intermediaire cree par chaque Deployment, qui maintient le nombre de pods. Il en
+              apparait un nouveau a chaque changement de l'image ou du template.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      L'Ingress n'apparait pas dans <code>kubectl get all</code> : ce type n'en fait pas partie.
+      C'est pourquoi il se montre a part, avec <code>kubectl get ingress</code>.
+    </p>
+
+    <h4>kubectl describe ingress, la demonstration du routage</h4>
+    <p>
+      La grille demande de montrer le fonctionnement de l'Ingress sans donner la commande.
+      <code>kubectl get ingress</code> liste les hotes ; <code>kubectl describe ingress
+      apps-ingress</code> montre la table de routage complete, et c'est elle qui explique le
+      comportement observe au <code>curl</code> :
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>kubectl describe ingress apps-ingress</span><span>extrait</span></div>
+<pre><code>Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  app1.com    /     app1-service:80 (10.42.0.x:80)
+  app2.com    /     app2-service:80 (10.42.0.x:80,10.42.0.y:80,10.42.0.z:80)
+  *           /     app3-service:80 (10.42.0.w:80)</code></pre>
+    </div>
+    <ul>
+      <li>Chaque ligne associe un en-tete <code>Host</code> a un Service : c'est Traefik qui lit
+        l'en-tete <abbr>HTTP</abbr> et choisit la destination, une seule adresse IP pour trois
+        applications.</li>
+      <li>La regle sans hote (<code>*</code>) est la regle par defaut : elle capte tout ce qui ne
+        correspond a aucun nom, donc l'acces direct par l'adresse IP, et sert app3.</li>
+      <li>Les adresses entre parentheses sont les endpoints, c'est-a-dire les pods reellement
+        selectionnes : <strong>trois</strong> pour <code>app2-service</code>. Une liste vide a cet
+        endroit signalerait un selecteur de labels errone, et c'est le premier endroit ou regarder
+        en cas de 404 ou de 503.</li>
+    </ul>
   </section>
 
   <!-- ====================================================== -->
@@ -2000,6 +2252,17 @@ git commit -am "v2" &amp;&amp; git push</code></pre>
       forme normalisee et explicite.
     </p>
 
+    <h3>Pourquoi la partie 2 reste dans le namespace default</h3>
+    <p>
+      Un namespace dedie aurait mieux cloisonne les trois applications, mais la sortie de reference
+      du sujet, comme la grille d'evaluation, s'appuie sur <code>kubectl get all</code> sans option
+      pour verifier la presence des trois deployments et les 3 replicas de <code>app2</code>. Or
+      cette commande ne regarde qu'un seul namespace : celui du contexte courant. Placer les
+      applications ailleurs obligerait l'evaluateur a deviner <code>-n &lt;namespace&gt;</code> pour
+      voir quoi que ce soit. Les parties 3 et bonus, elles, ont des namespaces imposes
+      (<code>argocd</code>, <code>dev</code>, <code>gitlab</code>) et les utilisent.
+    </p>
+
     <h3>Pourquoi le port 8888 est branche sur le port 80</h3>
     <p>
       Voir <a href="#k3d">section 09</a> : publier <code>8888:8888</code> ouvre un port qui ne mene
@@ -2044,6 +2307,41 @@ git commit -am "v2" &amp;&amp; git push</code></pre>
       Les commandes utiles, regroupees par outil. Toutes les cibles du Makefile s'executent depuis la
       racine du depot.
     </p>
+
+    <h3>Demarrer depuis un clone</h3>
+    <p>
+      La correction commence par un <code>git clone</code> dans un dossier vide, sur la machine
+      virtuelle de l'ecole. Voici l'enchainement a suivre avant toute demonstration.
+    </p>
+    <div class="codeblock">
+      <div class="fname"><span>terminal</span><span>preparation de la machine d'evaluation</span></div>
+<pre><code>git clone &lt;url-du-depot&gt; iot &amp;&amp; cd iot
+
+./Tools/VM_commands.sh    # installe VirtualBox, Vagrant, Docker, kubectl, k3d,
+                          # Argo CD CLI, Helm et jq ; averti si VT-x / AMD-V
+                          # n'est pas expose a la machine
+newgrp docker             # rend Docker utilisable sans sudo dans le shell courant
+
+make check                # verifie l'arborescence attendue par le sujet
+make check-versions       # affiche la version de chaque outil
+
+make p1                   # puis p1-clean avant de passer a la partie suivante</code></pre>
+    </div>
+    <div class="box warn">
+      <span class="tag">Deux pieges de la machine d'evaluation</span>
+      <p>
+        <strong>Virtualisation imbriquee</strong> : les parties 1 et 2 lancent des machines
+        VirtualBox <em>a l'interieur</em> de la machine virtuelle de l'ecole. Sans VT-x / AMD-V
+        expose par l'hyperviseur hote, <code>vagrant up</code> echoue.
+        <code>Tools/VM_commands.sh</code> le signale des le depart.
+      </p>
+      <p>
+        <strong>Stockage</strong> : par defaut les box et les disques vont dans
+        <code>/tmp/chillion</code>. Si <code>/tmp</code> est monte en tmpfs, donc en
+        <abbr>RAM</abbr>, il faut deplacer ce stockage :
+        <code>make VM_STORAGE=$HOME/iot-vms p1</code>.
+      </p>
+    </div>
 
     <h3>Makefile</h3>
     <div class="tablewrap">
@@ -2247,6 +2545,10 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
       <li><code>Docs/CONFORMITE_ANALYSE.md</code> : etat de conformite et points de vigilance.</li>
       <li><code>p1/README.md</code>, <code>p2/README.md</code>, <code>p3/README.md</code>, <code>bonus/README.md</code> : mise en oeuvre de chaque partie.</li>
       <li><code>p3/confs/GITHUB_SETUP.md</code> : mise en place du depot <abbr>GitOps</abbr>.</li>
+      <li><code>Tools/README.md</code> : role de chacun des scripts utilitaires
+        (<code>VM_commands.sh</code>, <code>check_requirements.sh</code>,
+        <code>check_from_host.sh</code>, <code>check_Traefik.sh</code>, <code>cleanup.sh</code>),
+        a citer si le correcteur demande des explications sur les fichiers hors p1, p2 et p3.</li>
       <li><code>Docs/iot.en.subject.pdf</code> : sujet officiel, version 4.0.</li>
     </ul>
   </section>
@@ -2270,7 +2572,7 @@ const LEXIQUE = [
   {t:"StatefulSet", f:"", c:"Kubernetes", d:"Equivalent du Deployment pour les applications a etat : identite reseau stable et volume persistant propre a chaque instance. Argo CD l'utilise pour son controleur."},
   {t:"DaemonSet", f:"", c:"Kubernetes", d:"Garantit l'execution d'exactement un pod sur chaque noeud du cluster. Utilise par klipper-lb pour publier les Services LoadBalancer."},
   {t:"Job", f:"", c:"Kubernetes", d:"Tache ponctuelle executee jusqu'a completion, puis terminee. Le chart GitLab s'en sert pour les migrations de base de donnees."},
-  {t:"Namespace", f:"", c:"Kubernetes", d:"Cloisonnement logique des objets dans un cluster. Le projet utilise argocd, dev, gitlab et apps. A ne pas confondre avec les namespaces du noyau Linux."},
+  {t:"Namespace", f:"", c:"Kubernetes", d:"Cloisonnement logique des objets dans un cluster. Le projet utilise argocd, dev et gitlab ; les applications de la partie 2 restent dans default. A ne pas confondre avec les namespaces du noyau Linux."},
   {t:"Service", f:"", c:"Kubernetes", d:"Adresse IP virtuelle stable et repartition de charge vers un ensemble de pods choisis par leurs labels. Les pods vont et viennent, le Service ne bouge pas."},
   {t:"ClusterIP", f:"", c:"Kubernetes", d:"Type de Service par defaut : joignable uniquement depuis l'interieur du cluster. Tous les Services du projet sont de ce type."},
   {t:"NodePort", f:"", c:"Kubernetes", d:"Type de Service ouvrant le meme port sur tous les noeuds, dans la plage 30000-32767. Non utilise ici."},
@@ -2349,6 +2651,8 @@ const LEXIQUE = [
   {t:"selfHeal", f:"", c:"GitOps", d:"Option de synchronisation qui annule toute modification faite directement sur le cluster et restaure le contenu du depot."},
   {t:"targetRevision", f:"", c:"GitOps", d:"Revision du depot suivie par Argo CD : une branche, une etiquette ou un commit. La valeur HEAD suit la branche par defaut."},
   {t:"CI/CD", f:"Continuous Integration / Continuous Delivery", c:"GitOps", d:"Chaine d'integration et de livraison continues. Le GitOps en est une variante ou le cluster tire les changements au lieu de les recevoir, ce qui evite de confier des acces d'administration a un serveur externe."},
+  {t:"CI", f:"Continuous Integration", c:"GitOps", d:"Integration continue : fusionner frequemment le travail dans une branche commune et faire verifier chaque commit par un serveur (compilation, tests, analyse) pour detecter une regression en minutes plutot qu'en semaines. Argo CD ne fait pas de CI."},
+  {t:"CD", f:"Continuous Delivery / Continuous Deployment", c:"GitOps", d:"Livraison continue : publier puis deployer automatiquement l'artefact valide par la CI dans un environnement. Argo CD couvre cette moitie de la chaine, en mode pull."},
   {t:"PAT", f:"Personal Access Token", c:"GitOps", d:"Jeton personnel remplacant le mot de passe pour l'acces a une API ou a un depot Git. Cree automatiquement dans GitLab par les scripts du bonus."},
   {t:"OAuth", f:"Open Authorization", c:"GitOps", d:"Protocole de delegation d'autorisation. Utilise en solution de repli pour obtenir un jeton d'acces a l'API GitLab."},
 

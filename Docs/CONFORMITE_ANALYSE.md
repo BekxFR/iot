@@ -23,6 +23,8 @@ Reference: Docs/iot.en.subject.pdf (v4.0)
 - [x] 3 applications web (app1, app2, app3)
 - [x] Routage HOST : app1.com -> app1, app2.com -> app2, defaut -> app3
 - [x] app2 avec 3 replicas
+- [x] Objets crees dans le namespace `default` : `kubectl get all` (sans option,
+      comme dans la grille) affiche les 3 deployments, pods et services
 - [x] Ingress Traefik avec `ingressClassName: traefik`
 - [x] Dossiers `scripts/` et `confs/` presents
 
