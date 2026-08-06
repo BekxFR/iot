@@ -1255,7 +1255,7 @@ html { scroll-behavior: smooth; }
           <text class="d-t mono" x="26" y="168">curl -H "Host: ..."</text>
 
           <rect class="d-zone" x="210" y="20" width="680" height="300" rx="8"/>
-          <text class="d-t hd" x="228" y="46">VM chillionS - 192.168.56.110</text>
+          <text class="d-t hd" x="228" y="46">VM llarreyS - 192.168.56.110</text>
 
           <rect class="d-box-a" x="240" y="120" width="150" height="70" rx="6"/>
           <text class="d-t hd" x="256" y="148">Traefik</text>
@@ -1912,13 +1912,13 @@ curl -H "Host: app1.com" http://192.168.56.110    # Application 1
 curl -H "Host: app2.com" http://192.168.56.110    # Application 2
 curl http://192.168.56.110                        # Application 3 (defaut)
 
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get nodes -o wide"
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get all"
+cd p2 &amp;&amp; vagrant ssh llarreyS -c "kubectl get nodes -o wide"
+cd p2 &amp;&amp; vagrant ssh llarreyS -c "kubectl get all"
 # app2 doit afficher READY 3/3
 
 # "montrez-moi votre Ingress" : la commande n'est pas donnee dans la grille
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl get ingress"
-cd p2 &amp;&amp; vagrant ssh chillionS -c "kubectl describe ingress apps-ingress"</code></pre>
+cd p2 &amp;&amp; vagrant ssh llarreyS -c "kubectl get ingress"
+cd p2 &amp;&amp; vagrant ssh llarreyS -c "kubectl describe ingress apps-ingress"</code></pre>
     </div>
     <p>
       La lecture de ces sorties est detaillee plus bas, dans

@@ -2,7 +2,7 @@
         p2 p2-up p2-down p2-clean p2-status p2-ssh p2-test \
         p3 p3-install p3-setup p3-deploy p3-up p3-down p3-clean p3-test p3-status check-docker \
         bonus bonus-install bonus-setup bonus-gitlab bonus-gitlab-deploy bonus-gitlab-configure \
-        bonus-deploy bonus-test bonus-clean bonus-status \
+        bonus-deploy bonus-test bonus-clean bonus-status bonus-down \
         clean fclean cleanup-files status help check check-requirements logs-clean check-versions
 
 # Variables de configuration
@@ -45,6 +45,7 @@ help:
 	@echo "  make p2-down    - Arrête la VM de la partie 2"
 	@echo "  make p2-clean   - Détruit la VM de la partie 2"
 	@echo "  make p2-status  - Affiche le statut de la VM"
+	@echo "  make p2-ssh     - SSH vers le server (llarreyS)"
 	@echo "  make p2-test    - Teste les applications web"
 	@echo ""
 	@echo "$(YELLOW)Partie 3 - K3d et Argo CD:$(NC)"
@@ -74,6 +75,13 @@ help:
 	@echo "  make cleanup-files - Nettoie uniquement les fichiers temporaires"
 	@echo "  make status       - Affiche le statut de toutes les parties"
 	@echo ""
+	@echo "$(YELLOW)Exclusivité entre les parties (automatique, rien n'est détruit):$(NC)"
+	@echo "  p1 (chillionS) et p2 (llarreyS) partagent l'IP 192.168.56.110 :"
+	@echo "    make p1 arrête p2, et make p2 arrête p1 (vagrant halt)."
+	@echo "  p3 et bonus publient les mêmes ports 8888/8443/6550 :"
+	@echo "    make p3 arrête iot-bonus, et make bonus arrête iot-cluster (k3d cluster stop)."
+	@echo "  make bonus arrête aussi les VM Vagrant : GitLab réclame ~6 Go de RAM."
+	@echo ""
 	@echo "$(YELLOW)Documentation et aide:$(NC)"
 	@echo "  make help         - Affiche cette aide"
 	@echo "  make check        - Vérifie la conformité aux consignes"
@@ -84,7 +92,8 @@ help:
 p1: p1-up
 	@echo "$(GREEN)Partie 1 lancée avec succès$(NC)"
 
-p1-up:
+# p1 et p2 partagent l'IP 192.168.56.110 imposée par le sujet : une seule peut tourner à la fois.
+p1-up: p2-down
 	@echo "$(BLUE)Démarrage de la Partie 1 (K3s + Vagrant)...$(NC)"
 	@VBoxManage setproperty machinefolder "$(VBOX_VM_DIR)"
 	cd $(VAGRANT_P1_DIR) && vagrant up
@@ -118,13 +127,13 @@ p1-ssh:
 p2: p2-up
 	@echo "$(GREEN)Partie 2 lancée avec succès$(NC)"
 
-p2-up:
+p2-up: p1-down
 	@echo "$(BLUE)Démarrage de la Partie 2 (K3s + Applications)...$(NC)"
 	@VBoxManage setproperty machinefolder "$(VBOX_VM_DIR)"
 	cd $(VAGRANT_P2_DIR) && vagrant up
 	@echo "$(GREEN)VM de la partie 2 démarrée$(NC)"
 	@echo "$(YELLOW)Vérification des applications...$(NC)"
-	cd $(VAGRANT_P2_DIR) && vagrant ssh chillionS -c "sudo kubectl get pods -A" || true
+	cd $(VAGRANT_P2_DIR) && vagrant ssh llarreyS -c "sudo kubectl get pods -A" || true
 
 p2-down:
 	@echo "$(YELLOW)Arrêt de la VM de la partie 2...$(NC)"
@@ -150,8 +159,8 @@ p2-test:
 	curl http://192.168.56.110 || echo "$(RED)app3 non accessible$(NC)"
 
 p2-ssh:
-	@echo "$(BLUE)Connexion SSH au serveur (chillionS)...$(NC)"
-	cd $(VAGRANT_P2_DIR) && vagrant ssh chillionS
+	@echo "$(BLUE)Connexion SSH au serveur (llarreyS)...$(NC)"
+	cd $(VAGRANT_P2_DIR) && vagrant ssh llarreyS
 
 # ==================== PARTIE 3 ====================
 p3: check-docker p3-install p3-setup p3-deploy
@@ -161,7 +170,10 @@ p3-install:
 	@echo "$(BLUE)Installation des outils pour la Partie 3...$(NC)"
 	cd $(P3_DIR) && ./scripts/install.sh
 
-p3-setup:
+# Les clusters K3d de p3 et du bonus publient les mêmes ports hôte (8888, 8443)
+# et le même port d'API (6550) : un seul peut tourner à la fois. On arrête
+# l'autre (stop, pas delete) : il redémarre avec k3d cluster start.
+p3-setup: bonus-down
 	@echo "$(BLUE)Configuration du cluster K3d + Argo CD...$(NC)"
 	cd $(P3_DIR) && ./scripts/setup_cluster.sh
 
@@ -210,7 +222,9 @@ bonus-install:
 	@echo "$(BLUE)Installation des outils pour le Bonus...$(NC)"
 	cd $(BONUS_DIR) && ./scripts/install.sh
 
-bonus-setup:
+# p3-down libère les ports 8888/8443/6550. p1-down et p2-down libèrent la RAM :
+# GitLab réclame ~6 Go, qu'une VM Vagrant allumée utiliserait.
+bonus-setup: p3-down p1-down p2-down
 	@echo "$(BLUE)Configuration du cluster K3d + Argo CD (Bonus)...$(NC)"
 	cd $(BONUS_DIR) && ./scripts/setup_cluster.sh
 
@@ -232,6 +246,10 @@ bonus-deploy:
 bonus-test:
 	@echo "$(BLUE)Test du Bonus GitLab...$(NC)"
 	cd $(BONUS_DIR) && ./scripts/test.sh
+
+bonus-down:
+	@echo "$(YELLOW)Arrêt du cluster K3d du bonus...$(NC)"
+	@k3d cluster stop iot-bonus 2>/dev/null || true
 
 bonus-clean:
 	@echo "$(RED)Nettoyage du Bonus...$(NC)"

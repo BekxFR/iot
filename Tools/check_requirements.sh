@@ -70,6 +70,12 @@ check_requirement "[ -f 'p2/confs/app2-deployment.yaml' ]" "P2 App2 config" "Con
 check_requirement "[ -f 'p2/confs/app3-deployment.yaml' ]" "P2 App3 config" "Configuration présente" "Configuration manquante"
 check_requirement "[ -f 'p2/confs/ingress.yaml' ]" "P2 Ingress" "Ingress configuré" "Ingress manquant"
 
+# P2 - Vérification Vagrantfile
+if [ -f "p2/Vagrantfile" ]; then
+    check_requirement "grep -q 'llarreyS' p2/Vagrantfile" "P2 Nom machine" "llarreyS trouvé" "Nom machine incorrect"
+    check_requirement "grep -q '192.168.56.110' p2/Vagrantfile" "P2 IP machine" "IP correcte" "IP incorrecte"
+fi
+
 # P2 - Vérification replicas App2
 if [ -f "p2/confs/app2-deployment.yaml" ]; then
     check_requirement "grep -q 'replicas: 3' p2/confs/app2-deployment.yaml" "P2 App2 replicas" "3 replicas configurés" "Nombre de replicas incorrect"

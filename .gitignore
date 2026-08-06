@@ -1,0 +1,61 @@
+# Fichiers et dossiers ignores par Git.
+# Documentation detaillee : Docs/GITIGNORE_INFO.md
+
+# ==================== Vagrant (p1, p2) ====================
+.vagrant/
+*.box
+vagrant.log
+ubuntu-*-console.log
+
+# Token de jonction K3s publie par le serveur dans le dossier synchronise.
+# Le dossier p1/confs/ reste versionne grace a son .gitkeep.
+p1/confs/node-token
+
+# ==================== Kubernetes ====================
+kubeconfig*
+*-secret.yaml
+*.crt
+*.key
+*.pem
+
+# ==================== Docker / K3d (p3, bonus) ====================
+k3d-*
+*.tar
+
+# ==================== Argo CD (p3, bonus) ====================
+argocd-password.txt
+.argocd/
+
+# ==================== Logs et debug ====================
+*.log
+logs/
+.logs/
+debug/
+
+# ==================== Systeme ====================
+.DS_Store
+*~
+*.tmp
+*.temp
+
+# ==================== Editeurs ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==================== Environnement ====================
+.env
+.env.*
+config.local
+
+# ==================== Test et demonstration ====================
+test-repo/
+demo-secrets/
+
+# ==================== Donnees persistantes ====================
+data/
+db/
+*-data/
+cache/
+.cache/

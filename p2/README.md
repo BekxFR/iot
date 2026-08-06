@@ -6,7 +6,7 @@ Cette partie implémente un cluster K3s avec 3 applications web accessibles via 
 
 ## Architecture
 
-- **Machine unique** : `chillionS` (192.168.56.110)
+- **Machine unique** : `llarreyS` (192.168.56.110)
 - **K3s** en mode server
 - **3 applications web** :
   - App1 : accessible via `app1.com` (1 replica)
@@ -63,7 +63,7 @@ curl -H "Host: app2.com" http://192.168.56.110
 curl http://192.168.56.110
 
 # Script de test automatique
-cd p2 && vagrant ssh chillionS -c "/vagrant/scripts/test_apps.sh"
+cd p2 && vagrant ssh llarreyS -c "/vagrant/scripts/test_apps.sh"
 ```
 
 ## Vérification
@@ -73,7 +73,7 @@ montre la sortie de référence du sujet, et `kubectl get all` affiche donc
 directement les 3 deployments, leurs pods et leurs services (app2 en 3/3).
 
 ```bash
-cd p2 && vagrant ssh chillionS -c "kubectl get nodes -o wide"
-cd p2 && vagrant ssh chillionS -c "kubectl get all"
-cd p2 && vagrant ssh chillionS -c "kubectl get ingress"
+cd p2 && vagrant ssh llarreyS -c "kubectl get nodes -o wide"
+cd p2 && vagrant ssh llarreyS -c "kubectl get all"
+cd p2 && vagrant ssh llarreyS -c "kubectl get ingress"
 ```

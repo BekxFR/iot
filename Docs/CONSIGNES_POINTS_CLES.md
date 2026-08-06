@@ -60,7 +60,7 @@ iot/
 
 #### Machine virtuelle
 - **Nombre** : 1 seule machine
-- **Nom** : `[LOGIN]S` (ex: `chillionS`)
+- **Nom** : `[LOGIN]S` (ex: `llarreyS`)
 - **IP** : `192.168.56.110`
 - **K3s** : Mode serveur uniquement
 

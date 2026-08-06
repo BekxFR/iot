@@ -29,6 +29,16 @@ Points critiques et exigences pour chaque partie :
 - Points de vérification
 - Checklist de conformité
 
+### `GRILLE_SOUTENANCE.md`
+**Document a suivre le jour de la defense**
+
+Reprise point par point de la grille d'evaluation de l'intra (`iot.html`) :
+- Pour chaque question : ce que l'evaluateur verifie, la commande exacte a lancer,
+  la preuve correspondante dans le depot, ce qu'il faut savoir expliquer
+- Ordre de passage impose par les conflits de ressources (noms de VM, ports, RAM)
+- Reponses preparees pour les questions orales (K3s, Vagrant, K3d, CI et Argo CD)
+- Preparation la veille et checklist finale
+
 ### `GITIGNORE_INFO.md`
 **Explication du fichier .gitignore**
 

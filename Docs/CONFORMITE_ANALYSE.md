@@ -18,7 +18,7 @@ Reference: Docs/iot.en.subject.pdf (v4.0)
 
 ## Partie 2 : K3s et 3 applications - CONFORME
 
-- [x] 1 seule VM (chillionS), IP 192.168.56.110, Ubuntu 26.04 LTS
+- [x] 1 seule VM (llarreyS), IP 192.168.56.110, Ubuntu 26.04 LTS
 - [x] K3s en mode server
 - [x] 3 applications web (app1, app2, app3)
 - [x] Routage HOST : app1.com -> app1, app2.com -> app2, defaut -> app3
