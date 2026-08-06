@@ -32,35 +32,35 @@ Cette partie bonus ajoute un GitLab local au cluster K3d. Argo CD synchronise de
 | `dev`     | Application wil-playground (deployment, service, ingress) |
 | `gitlab`  | GitLab complet (webservice, gitaly, sidekiq, postgresql, redis, minio) |
 
-## Outils utilises
+## Outils utilisés
 
-| Outil | Role |
+| Outil | Rôle |
 |-------|------|
-| **Docker** | Moteur de conteneurs, necessaire pour faire tourner le cluster K3d sur la machine hote |
-| **K3d** | Cree un cluster Kubernetes leger (K3s) a l'interieur de conteneurs Docker, evitant le besoin de VMs |
-| **kubectl** | Client en ligne de commande pour interagir avec l'API Kubernetes (deployer, inspecter, debugger) |
+| **Docker** | Moteur de conteneurs, nécessaire pour faire tourner le cluster K3d sur la machine hôte |
+| **K3d** | Crée un cluster Kubernetes léger (K3s) à l'intérieur de conteneurs Docker, évitant le besoin de VMs |
+| **kubectl** | Client en ligne de commande pour interagir avec l'API Kubernetes (déployer, inspecter, debugger) |
 | **Helm** | Gestionnaire de paquets Kubernetes - permet d'installer GitLab via son chart officiel `gitlab/gitlab` avec un seul fichier de valeurs au lieu de dizaines de manifestes YAML |
-| **Argo CD CLI** | Client pour Argo CD, le moteur GitOps qui surveille un repo Git et synchronise automatiquement l'etat du cluster |
-| **git** | Necessaire pour cloner le projet GitLab local, y pousser les manifestes, et effectuer la demo de changement de version (v1 -> v2) |
+| **Argo CD CLI** | Client pour Argo CD, le moteur GitOps qui surveille un repo Git et synchronise automatiquement l'état du cluster |
+| **git** | Nécessaire pour cloner le projet GitLab local, y pousser les manifestes, et effectuer la démo de changement de version (v1 -> v2) |
 
-## Prerequis
+## Prérequis
 
-- Docker (accessible sans sudo - `newgrp docker` si necessaire)
+- Docker (accessible sans sudo - `newgrp docker` si nécessaire)
 - ~3 CPU, 6 GB RAM minimum pour GitLab
 
 ## Installation
 
-### Via le Makefile (recommande)
+### Via le Makefile (recommandé)
 
 ```bash
 # Pipeline complet
 make bonus
 
-# Ou etape par etape
+# Ou étape par étape
 make bonus-install    # Installe Helm + outils P3 si absents
-make bonus-setup      # Cree cluster K3d + Argo CD + 3 namespaces
-make bonus-gitlab     # Deploie et configure GitLab (~15 min)
-make bonus-deploy     # Deploie l'app via Argo CD -> GitLab local
+make bonus-setup      # Crée cluster K3d + Argo CD + 3 namespaces
+make bonus-gitlab     # Déploie et configure GitLab (~15 min)
+make bonus-deploy     # Déploie l'app via Argo CD -> GitLab local
 ```
 
 ### En direct
@@ -74,22 +74,22 @@ cd bonus
 ./scripts/deploy_app.sh
 ```
 
-## Verification
+## Vérification
 
 ```bash
 make bonus-test
 ```
 
-Verifie :
+Vérifie :
 - Cluster K3d existe
 - 3 namespaces : argocd, dev, gitlab
 - Pods GitLab en Running
 - Pods Argo CD en Running
 - App dans dev en Running
-- App repond sur port 8888
+- App répond sur port 8888
 - Source Argo CD pointe vers GitLab (pas GitHub)
 
-## Acces
+## Accès
 
 ### Application (port 8888)
 
@@ -121,12 +121,12 @@ kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181
 # Password: kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 -d
 ```
 
-## Creer un nouveau depot et y pousser du code
+## Créer un nouveau dépôt et y pousser du code
 
-La grille d'evaluation demande de creer un **nouveau** depot pendant la soutenance,
-d'y ajouter du code, et de verifier sur GitLab que l'operation a reussi. Ce depot
-de demonstration est independant de `iot-app`, celui qu'Argo CD synchronise : il
-sert uniquement a prouver que l'instance GitLab est pleinement fonctionnelle.
+La grille d'évaluation demande de créer un **nouveau** dépôt pendant la soutenance,
+d'y ajouter du code, et de vérifier sur GitLab que l'opération a réussi. Ce dépôt
+de démonstration est indépendant de `iot-app`, celui qu'Argo CD synchronise : il
+sert uniquement à prouver que l'instance GitLab est pleinement fonctionnelle.
 
 Les deux variantes ci-dessous supposent le port-forward actif :
 
@@ -139,14 +139,14 @@ echo "root / $GITLAB_PWD"
 ### Variante A - API et git en ligne de commande
 
 ```bash
-# 1. Jeton d'acces (le meme mecanisme que configure_gitlab.sh)
+# 1. Jeton d'accès (le même mécanisme que configure_gitlab.sh)
 TOOLBOX=$(kubectl get pods -n gitlab -l app=toolbox -o jsonpath='{.items[0].metadata.name}')
 TOKEN=$(kubectl exec "$TOOLBOX" -n gitlab -c toolbox -- gitlab-rails runner "
 puts User.find_by_username('root').personal_access_tokens.create!(
   scopes: [:api, :read_repository, :write_repository],
   name: 'demo-defense', expires_at: 30.days.from_now).token" | tail -1 | tr -d '\r\n')
 
-# 2. Creation du depot
+# 2. Création du dépôt
 curl -s -X POST "http://localhost:30080/api/v4/projects" \
     -H "PRIVATE-TOKEN: $TOKEN" \
     -d "name=demo-defense&visibility=public" | jq '{id, path_with_namespace, web_url}'
@@ -159,7 +159,7 @@ git add . && git commit -m "Ajout de hello.py"
 git remote add origin "http://root:${TOKEN}@localhost:30080/root/demo-defense.git"
 git push -u origin main
 
-# 4. Verification cote GitLab : le fichier doit apparaitre dans l'arbre du depot
+# 4. Vérification côté GitLab : le fichier doit apparaître dans l'arbre du dépôt
 curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/tree" \
     -H "PRIVATE-TOKEN: $TOKEN" | jq '.[].name'
 curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/commits" \
@@ -168,18 +168,18 @@ curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/c
 
 ### Variante B - interface web
 
-1. Ouvrir `http://localhost:30080` et se connecter avec `root` et le mot de passe recupere plus haut.
-2. **New project** -> **Create blank project** : nom `demo-defense`, visibilite *Public*, cocher
+1. Ouvrir `http://localhost:30080` et se connecter avec `root` et le mot de passe récupéré plus haut.
+2. **New project** -> **Create blank project** : nom `demo-defense`, visibilité *Public*, cocher
    *Initialize repository with a README*.
-3. Dans le depot cree : **+** -> **New file**, saisir un fichier (par exemple `hello.py`),
+3. Dans le dépôt créé : **+** -> **New file**, saisir un fichier (par exemple `hello.py`),
    puis **Commit changes**.
-4. Le fichier et le commit apparaissent immediatement dans l'arborescence du depot et dans
-   l'onglet **Commits** : l'operation est verifiee cote GitLab.
+4. Le fichier et le commit apparaissent immédiatement dans l'arborescence du dépôt et dans
+   l'onglet **Commits** : l'opération est vérifiée côté GitLab.
 
-> **A tester avant la soutenance.** Le chart est configure avec
+> **À tester avant la soutenance.** Le chart est configuré avec
 > `global.hosts.domain: gitlab.local` : l'URL externe de GitLab est
 > `http://gitlab.gitlab.local`, et certaines redirections (apres connexion
-> notamment) peuvent pointer vers ce nom plutot que vers `localhost:30080`.
+> notamment) peuvent pointer vers ce nom plutôt que vers `localhost:30080`.
 > Si le navigateur part sur une adresse injoignable, deux solutions :
 > utiliser la variante A, ou faire correspondre les deux noms :
 >
@@ -189,21 +189,21 @@ curl -s "http://localhost:30080/api/v4/projects/root%2Fdemo-defense/repository/c
 > # puis http://gitlab.gitlab.local
 > ```
 
-### Nettoyage du depot de demonstration
+### Nettoyage du dépôt de démonstration
 
 ```bash
 curl -s -X DELETE "http://localhost:30080/api/v4/projects/root%2Fdemo-defense" \
     -H "PRIVATE-TOKEN: $TOKEN"
 ```
 
-## Demonstration GitOps v1 -> v2
+## Démonstration GitOps v1 -> v2
 
 1. **Port-forward vers GitLab** :
    ```bash
    kubectl port-forward svc/gitlab-webservice-default -n gitlab 30080:8181 &
    ```
 
-2. **Recuperer le mot de passe GitLab** :
+2. **Récupérer le mot de passe GitLab** :
    ```bash
    GITLAB_PWD=$(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 -d)
    ```
@@ -216,7 +216,7 @@ curl -s -X DELETE "http://localhost:30080/api/v4/projects/root%2Fdemo-defense" \
    git add . && git commit -m "Upgrade to v2" && git push
    ```
 
-4. **Verifier** (Argo CD synchronise en ~3 min) :
+4. **Vérifier** (Argo CD synchronise en ~3 min) :
    ```bash
    curl http://localhost:8888
    # -> v2
@@ -226,26 +226,26 @@ curl -s -X DELETE "http://localhost:30080/api/v4/projects/root%2Fdemo-defense" \
 
 ```
 Utilisateur push vers GitLab local
-  -> Argo CD detecte le changement (polling ~3 min)
+  -> Argo CD détecte le changement (polling ~3 min)
     -> Argo CD synchronise les manifestes
-      -> Kubernetes deploie la nouvelle version dans dev
+      -> Kubernetes déploie la nouvelle version dans dev
 ```
 
-## Differences avec la Partie 3
+## Différences avec la Partie 3
 
 | Aspect | Partie 3 | Bonus |
 |--------|----------|-------|
 | Source Git | GitHub (externe) | GitLab (local, dans le cluster) |
 | Namespaces | argocd, dev | argocd, dev, gitlab |
-| Outils supplementaires | - | Helm |
-| Ressources | Legeres | ~3 CPU, 6 GB RAM (GitLab) |
-| Deploiement GitLab | - | Helm chart officiel gitlab/gitlab |
+| Outils supplémentaires | - | Helm |
+| Ressources | Légères | ~3 CPU, 6 GB RAM (GitLab) |
+| Déploiement GitLab | - | Helm chart officiel gitlab/gitlab |
 
 ## Configuration GitLab
 
-Le chart Helm est configure avec des parametres minimaux (`confs/gitlab-values.yaml`) :
+Le chart Helm est configuré avec des paramètres minimaux (`confs/gitlab-values.yaml`) :
 - Pas de certmanager, nginx-ingress, prometheus, runner, registry, KAS, pages
-- Replicas reduites a 1
+- Replicas réduites à 1
 - HTTP uniquement (pas de TLS)
 - Communication Argo CD -> GitLab via DNS interne Kubernetes
 
@@ -253,7 +253,7 @@ Le chart Helm est configure avec des parametres minimaux (`confs/gitlab-values.y
 
 ```bash
 make bonus-clean    # Supprime le cluster K3d + Docker prune
-make fclean         # Nettoyage force de tout le projet
+make fclean         # Nettoyage forcé de tout le projet
 ```
 
 ## Structure des fichiers
@@ -263,11 +263,11 @@ bonus/
 ├── README.md
 ├── scripts/
 │   ├── install.sh              # Installe Helm (+ outils P3 si absents)
-│   ├── setup_cluster.sh        # Cree cluster K3d + Argo CD + 3 namespaces
-│   ├── deploy_gitlab.sh        # Deploie GitLab via Helm chart officiel
-│   ├── configure_gitlab.sh     # Cree projet GitLab, push manifestes, enregistre repo dans Argo CD
+│   ├── setup_cluster.sh        # Crée cluster K3d + Argo CD + 3 namespaces
+│   ├── deploy_gitlab.sh        # Déploie GitLab via Helm chart officiel
+│   ├── configure_gitlab.sh     # Crée projet GitLab, push manifestes, enregistre repo dans Argo CD
 │   ├── deploy_app.sh           # Applique application.yaml Argo CD -> GitLab local
-│   ├── test.sh                 # Verifie tout (GitLab, Argo CD, app, GitOps)
+│   ├── test.sh                 # Vérifie tout (GitLab, Argo CD, app, GitOps)
 │   └── cleanup.sh              # Supprime cluster + nettoyage
 └── confs/
     ├── gitlab-values.yaml      # Helm values minimaux pour GitLab
