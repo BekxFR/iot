@@ -3,7 +3,8 @@
         p3 p3-install p3-setup p3-deploy p3-up p3-down p3-clean p3-test p3-status check-docker \
         bonus bonus-install bonus-setup bonus-gitlab bonus-gitlab-deploy bonus-gitlab-configure \
         bonus-deploy bonus-test bonus-clean bonus-status bonus-down \
-        clean fclean cleanup-files status help check check-requirements logs-clean check-versions
+        clean fclean cleanup-files status help check check-requirements logs-clean check-versions \
+        vbox-prune
 
 # Variables de configuration
 VAGRANT_P1_DIR = p1
@@ -88,6 +89,22 @@ help:
 	@echo "  Consignes détaillées: Docs/CONSIGNES_POINTS_CLES.md"
 	@echo "  Documentation par partie: p1/README.md, p2/README.md, p3/README.md"
 
+# ==================== UTILITAIRES VIRTUALBOX ====================
+# Desenregistre les VMs devenues inaccessibles : le .vbox a disparu mais l'UUID
+# reste dans le registre VirtualBox. Cas typique, $(VM_STORAGE) sous /tmp purge
+# au reboot. VBoxManage repond alors E_ACCESSDENIED sur cet UUID, ce qui fait
+# echouer vagrant destroy : p1-clean/p2-clean deviennent impossibles a passer.
+vbox-prune:
+	@command -v VBoxManage >/dev/null 2>&1 || exit 0; \
+	VBoxManage list vms 2>/dev/null \
+	  | sed -n 's/^"<inaccessible>" {\(.*\)}$$/\1/p' \
+	  | while read -r uuid; do \
+	      echo "$(YELLOW)VM inaccessible detectee ($$uuid) : desenregistrement$(NC)"; \
+	      VBoxManage unregistervm "$$uuid" >/dev/null 2>&1 \
+	        || echo "$(RED)Echec du desenregistrement de $$uuid$(NC)"; \
+	    done; \
+	exit 0
+
 # ==================== PARTIE 1 ====================
 p1: p1-up
 	@echo "$(GREEN)Partie 1 lancée avec succès$(NC)"
@@ -110,7 +127,7 @@ p1-down:
 	cd $(VAGRANT_P1_DIR) && vagrant halt
 	@echo "$(GREEN)VMs de la partie 1 arrêtées$(NC)"
 
-p1-clean:
+p1-clean: vbox-prune
 	@echo "$(RED)Nettoyage de la partie 1...$(NC)"
 	cd $(VAGRANT_P1_DIR) && vagrant destroy -f
 	@echo "$(GREEN)Partie 1 nettoyée$(NC)"
@@ -140,7 +157,7 @@ p2-down:
 	cd $(VAGRANT_P2_DIR) && vagrant halt
 	@echo "$(GREEN)VM de la partie 2 arrêtée$(NC)"
 
-p2-clean:
+p2-clean: vbox-prune
 	@echo "$(RED)Nettoyage de la partie 2...$(NC)"
 	cd $(VAGRANT_P2_DIR) && vagrant destroy -f
 	@echo "$(GREEN)Partie 2 nettoyée$(NC)"
