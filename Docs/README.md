@@ -39,6 +39,17 @@ Reprise point par point de la grille d'evaluation de l'intra (`iot.html`) :
 - Reponses preparees pour les questions orales (K3s, Vagrant, K3d, CI et Argo CD)
 - Preparation la veille et checklist finale
 
+### `MIGRATION_QEMU.md`
+**VM hote sous QEMU/KVM au lieu de VirtualBox**
+
+Migration de la VM hote pour debloquer la double imbrication sur CPU Intel recents :
+- Ou se trouvent les fichiers de la VM utilises par QEMU
+- Comment lancer la VM, par script ou en ligne de commande QEMU detaillee
+- Les etapes restant a faire dans l'invite (reseau, Guest Additions, disque)
+- Depannage et retour arriere vers VirtualBox
+
+Le script associe se trouve dans ce meme repertoire : `migrate-vbox-to-qemu.sh`.
+
 ### `GITIGNORE_INFO.md`
 **Explication du fichier .gitignore**
 

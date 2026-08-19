@@ -102,7 +102,7 @@ mkdir -p ~/VirtualBox\ VMs
 VBoxManage setproperty machinefolder ~/VirtualBox\ VMs
 ```
 
-A ne faire que si l'espace disque de `$HOME` le permet (`df -h /home`) — le stockage dans `/tmp`
+A ne faire que si l'espace disque de `$HOME` le permet (`df -h /home`) - le stockage dans `/tmp`
 est parfois un choix delibere quand `$HOME` est sur NFS ou sous quota.
 
 Pour revenir au comportement par defaut :
@@ -120,7 +120,7 @@ The guest machine entered an invalid state while waiting for it to boot.
 The machine is in the 'gurumeditation' state.
 ```
 
-Crash CPU de l'invite. Cause typique ici : **virtualisation imbriquee** — cette machine est
+Crash CPU de l'invite. Cause typique ici : **virtualisation imbriquee** - cette machine est
 elle-meme une VM VirtualBox (presence de `VBoxService`, modules `vboxguest`/`vboxsf`).
 
 ```bash
@@ -145,6 +145,12 @@ cd p1 && vagrant destroy -f && cd .. && make p1
 
 Si la virtualisation imbriquee reste indisponible, p1/p2 (Vagrant + VirtualBox) ne peuvent pas
 tourner dans cet environnement ; p3 et bonus (K3d/Docker) ne sont pas concernes.
+
+**Resolution retenue (19/08/2026).** Sur les CPU Intel recents (12e/13e generation),
+VirtualBox ne gere pas correctement cette double imbrication, quels que soient les
+reglages ci-dessus. La VM hote a donc ete migree de VirtualBox vers QEMU/KVM, dont
+le nested VMX est plus fiable. Le VirtualBox interne (p1/p2) est conserve.
+Procedure complete : [MIGRATION_QEMU.md](MIGRATION_QEMU.md).
 
 ### `VBoxManage: error: Details: code NS_ERROR_FAILURE`, VM bloquee en `aborted`
 
