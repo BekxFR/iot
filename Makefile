@@ -12,10 +12,14 @@ VAGRANT_P2_DIR = p2
 P3_DIR = p3
 BONUS_DIR = bonus
 
-# Stockage des box Vagrant et des disques VirtualBox.
-# Surchargeable si /tmp est un tmpfs (RAM) ou trop petit :
+# Stockage des box Vagrant et des disques VirtualBox, A L'INTERIEUR de la VM
+# hote (dont le / fait ~157 Gio sans quota). Pas /tmp : souvent monte en tmpfs
+# ou purge au redemarrage, ce qui laisse des VM inaccessibles dans le registre
+# VirtualBox et fait echouer vagrant destroy (voir vbox-prune).
+# A ne pas confondre avec le HOME du poste physique de 42, lui sous quota
+# reduit. Surchargeable :
 #   make VM_STORAGE=/goinfre/$(USER) p1
-VM_STORAGE ?= /tmp/chillion
+VM_STORAGE ?= $(HOME)/chillion
 export VAGRANT_HOME = $(VM_STORAGE)/.vagrant.d
 VBOX_VM_DIR = $(VM_STORAGE)/VirtualBox VMs
 
