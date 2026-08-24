@@ -19,6 +19,13 @@ Vagrant.configure("2") do |config|
     vb.memory = 1024
     vb.cpus   = 1
     vb.customize ["setextradata", :id, "VBoxInternal/TM/TSCModeSwitchAllowed", "0"]
+    # Clone lie : les machines partagent l'image de base au lieu d'en copier
+    # une chacune. Environ 1 Go de disque economise par machine et un
+    # `vagrant up` nettement plus court, ce qui compte sur un poste dont le
+    # disque et la RAM sont deja contraints, et ou les parties sont relancees
+    # plusieurs fois. Contrepartie : VirtualBox garde une VM de base
+    # supplementaire, visible dans `VBoxManage list vms` mais jamais demarree.
+    vb.linked_clone = true
   end
 
   # Machine 1 : K3s en mode controller (server)
