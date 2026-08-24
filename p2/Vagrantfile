@@ -2,13 +2,14 @@
 # vi: set ft=ruby :
 
 # Ubuntu 26.04 LTS : derniere version stable de la distribution (exigence du sujet).
-BOX         = "bento/ubuntu-26.04"
+BOX         = "bento/debian-13"
 
 SERVER_NAME = "llarreyS"
 SERVER_IP   = "192.168.56.110"
 
 Vagrant.configure("2") do |config|
   config.vm.box = BOX
+  config.vm.box_version = "202510.26.0"
 
   # Machine unique de la partie 2 : K3s en mode server.
   config.vm.define SERVER_NAME do |server|
