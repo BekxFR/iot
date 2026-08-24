@@ -543,6 +543,7 @@ Ne pas utiliser les deux en alternance.
 
 - Script de migration : `Docs/migrate-vbox-to-qemu.sh`
 - Definition libvirt de la VM : `Docs/Debian-VM.libvirt.xml`
+- Creer une VM neuve depuis un ISO : `Docs/create-vm-qemu.sh`
 - Contexte de l'incident VirtualBox : `Docs/DEPANNAGE_VIRTUALBOX.md`
 - Contraintes d'evaluation : `Docs/CONSIGNES_POINTS_CLES.md`
 - Besoins en ressources du bonus : `bonus/README.md`

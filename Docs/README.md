@@ -56,6 +56,27 @@ de la VM pour virt-manager).
 
 Le script associe se trouve dans ce meme repertoire : `migrate-vbox-to-qemu.sh`.
 
+### `create-vm-qemu.sh`
+**Creer une VM QEMU pour le projet, a partir d'un ISO**
+
+Script autonome destine a quelqu'un qui part de zero, sans VM existante. Il
+cree le disque, lance l'installation depuis l'image ISO, puis redemarre la VM
+sur son disque.
+
+```bash
+./Docs/create-vm-qemu.sh --iso debian-13-netinst.iso   # installer
+./Docs/create-vm-qemu.sh                               # redemarrer ensuite
+./Docs/create-vm-qemu.sh --help                        # options
+```
+
+Il verifie les prerequis (KVM, acces a `/dev/kvm`, virtualisation imbriquee),
+dimensionne la VM sur la RAM reelle du poste, et redirige les ports utiles au
+projet : 2222 (SSH), 8888 et 8443 (ingress Traefik), 8080 (Argo CD) et 30080
+(interface web GitLab du bonus).
+
+A ne pas confondre avec `migrate-vbox-to-qemu.sh`, qui convertit une VM
+VirtualBox **existante** au lieu d'en installer une neuve.
+
 ### `GITIGNORE_INFO.md`
 **Explication du fichier .gitignore**
 
