@@ -92,8 +92,15 @@ gitlab:
   # Composants inutiles au bonus : le sujet demande d'heberger un depot Git et
   # de laisser Argo CD le lire. Sauvegardes, metriques Prometheus et reception
   # d'emails n'y participent pas.
+  # toolbox reste ACTIF : scripts/configure_gitlab.sh s'en sert pour creer le
+  # Personal Access Token via `gitlab-rails runner`. Le desactiver fait
+  # echouer la configuration de GitLab, pas seulement les sauvegardes.
   toolbox:
-    enabled: false      # utilitaire de sauvegarde/restauration
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 200M
   gitlab-exporter:
     enabled: false      # exporteur de metriques Prometheus
   mailroom:

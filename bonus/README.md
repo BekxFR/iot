@@ -277,7 +277,6 @@ participent pas :
 
 | Composant retiré | Réservation récupérée | Rôle supprimé |
 |---|---|---|
-| `gitlab.toolbox` | 350 M | sauvegarde et restauration |
 | `gitlab.gitlab-exporter` | 100 M | métriques Prometheus |
 | `gitlab.mailroom` | 150 M | emails entrants |
 | `global.minio` | 128 Mi | stockage objet |
@@ -285,9 +284,16 @@ participent pas :
 Désactiver MinIO est sans risque ici : tous les usages qui le consommeraient
 (`lfs`, `artifacts`, `uploads`, `packages`, `terraformState`) sont déjà coupés,
 et `externalDiffs`, `dependencyProxy`, `ciSecureFiles` valent `false` par
-défaut. Le `checkConfig` du stockage objet ne se déclenche donc pas. Il fallait
-en revanche désactiver `toolbox` en même temps, sinon le chart réclame un
-secret de sauvegarde.
+défaut. Le `checkConfig` du stockage objet ne se déclenche donc pas.
+
+> **`gitlab.toolbox` doit rester actif.** Malgré son nom d'utilitaire de
+> sauvegarde, c'est lui qui exécute `gitlab-rails runner` pour créer le
+> Personal Access Token dans `scripts/configure_gitlab.sh`. Le désactiver fait
+> échouer la configuration de GitLab, pas seulement les sauvegardes. Ses
+> `requests` sont en revanche ramenées de 350 M à 200 M.
+>
+> Le script sait désormais se rabattre sur le flux OAuth si le pod est absent,
+> au lieu de s'arrêter net.
 
 Deux réglages agissent sur la mémoire **réellement consommée**, pas seulement
 sur les réservations :
@@ -301,7 +307,7 @@ Les `resources.requests` de `webservice` (2,5 G -> 1,5 G) et `sidekiq`
 (2 G -> 1 G) n'agissent que sur l'ordonnancement : elles évitent des pods
 bloqués en `Pending` sur un cluster k3d contraint, sans réduire l'usage réel.
 
-Au total, environ 2,7 Go de réservations libérées et quatre pods en moins.
+Au total, environ 2,5 Go de réservations libérées et trois pods en moins.
 
 **Non testé.** La validation demande un déploiement GitLab complet dans la VM.
 Si le bonus plante encore, le levier suivant est côté hôte : fermer VS Code,

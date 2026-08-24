@@ -67,13 +67,15 @@ done
 
 # 4. Creer un Personal Access Token via gitlab-rails runner
 echo "Creation d'un Personal Access Token..."
-TOOLBOX_POD=$(kubectl get pods -n $NAMESPACE_GITLAB -l app=toolbox -o jsonpath='{.items[0].metadata.name}')
+# Le pod toolbox est la voie privilegiee, mais son absence ne doit pas etre
+# fatale : le repli OAuth ci-dessous sait aussi obtenir un token. Un `exit 1`
+# ici rendait ce repli inatteignable.
+TOOLBOX_POD=$(kubectl get pods -n $NAMESPACE_GITLAB -l app=toolbox -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+TOKEN=""
 if [ -z "$TOOLBOX_POD" ]; then
-    echo "[FAIL] Pod toolbox non trouve"
-    exit 1
-fi
-
-TOKEN=$(kubectl exec "$TOOLBOX_POD" -n $NAMESPACE_GITLAB -c toolbox -- gitlab-rails runner "
+    echo "[WARN] Pod toolbox absent : passage direct au repli OAuth."
+else
+    TOKEN=$(kubectl exec "$TOOLBOX_POD" -n $NAMESPACE_GITLAB -c toolbox -- gitlab-rails runner "
 token = User.find_by_username('root').personal_access_tokens.create!(
   scopes: [:api, :read_repository, :write_repository],
   name: 'iot-token',
@@ -81,6 +83,7 @@ token = User.find_by_username('root').personal_access_tokens.create!(
 )
 puts token.token
 " 2>/dev/null | tail -1 | tr -d '\r\n')
+fi
 
 if [ -z "$TOKEN" ]; then
     echo "Token via rails runner echoue, tentative via API..."
