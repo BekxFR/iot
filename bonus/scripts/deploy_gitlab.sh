@@ -29,6 +29,17 @@ echo "Installation de GitLab (chart $CHART_VERSION) dans le namespace '$NAMESPAC
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BONUS_DIR="$(dirname "$SCRIPT_DIR")"
 
+echo "Creation du secret de configuration des sauvegardes..."
+kubectl create namespace $NAMESPACE_GITLAB --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic gitlab-backup-storage-config \
+    --namespace $NAMESPACE_GITLAB \
+    --from-literal=config='[default]
+bucket_location = us-east-1
+host_base = localhost:9000
+host_bucket = localhost:9000
+use_https = False
+' --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install gitlab gitlab/gitlab \
     --version "$CHART_VERSION" \
     --namespace $NAMESPACE_GITLAB \

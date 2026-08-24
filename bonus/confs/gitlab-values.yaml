@@ -18,7 +18,7 @@ global:
   # Stockage objet desactive : tous les usages qui le consommeraient
   # (lfs, artifacts, uploads, packages, terraformState) sont coupes ci-dessous,
   # et externalDiffs / dependencyProxy / ciSecureFiles sont deja a false par
-  # defaut. Le checkConfig objectStorage ne se declenche donc pas.
+  # defaut.
   minio:
     enabled: false
   appConfig:
@@ -101,6 +101,11 @@ gitlab:
       requests:
         cpu: 50m
         memory: 200M
+    backups:
+      objectStorage:
+        config:
+          secret: gitlab-backup-storage-config
+          key: config
   gitlab-exporter:
     enabled: false      # exporteur de metriques Prometheus
   mailroom:
