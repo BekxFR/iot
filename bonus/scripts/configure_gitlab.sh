@@ -53,7 +53,9 @@ trap cleanup EXIT
 # 3. Attendre que l'API GitLab reponde
 echo "Attente de l'API GitLab..."
 for i in $(seq 1 60); do
-    if curl -s "http://localhost:$LOCAL_PORT/api/v4/version" 2>/dev/null | grep -q "version"; then
+    HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 10 \
+        "http://localhost:$LOCAL_PORT/api/v4/version" 2>/dev/null)
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
         echo "[OK] API GitLab prete"
         break
     fi
@@ -67,9 +69,6 @@ done
 
 # 4. Creer un Personal Access Token via gitlab-rails runner
 echo "Creation d'un Personal Access Token..."
-# Le pod toolbox est la voie privilegiee, mais son absence ne doit pas etre
-# fatale : le repli OAuth ci-dessous sait aussi obtenir un token. Un `exit 1`
-# ici rendait ce repli inatteignable.
 TOOLBOX_POD=$(kubectl get pods -n $NAMESPACE_GITLAB -l app=toolbox -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 TOKEN=""
 if [ -z "$TOOLBOX_POD" ]; then
