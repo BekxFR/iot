@@ -8,10 +8,13 @@
 # A L'INTERIEUR de celle-ci. Il faut donc de la virtualisation imbriquee, que
 # VirtualBox gere mal sur les CPU Intel recents. QEMU/KVM la gere correctement.
 #
-# Usage :
-#   ./create-vm-qemu.sh --iso debian-13-netinst.iso     # cree le disque et installe
-#   ./create-vm-qemu.sh                                 # redemarre la VM installee
-#   ./create-vm-qemu.sh --help
+# Deux modes :
+#   ./create-vm-qemu.sh create --iso debian-13.iso   # creer une VM et l'installer
+#   ./create-vm-qemu.sh run                          # lancer une VM deja creee
+#   ./create-vm-qemu.sh list                         # lister les VM existantes
+#
+# Sans verbe, le mode est deduit : "create" si le disque n'existe pas encore,
+# "run" sinon. Le mode retenu est toujours affiche avant le lancement.
 #
 set -euo pipefail
 
@@ -36,22 +39,41 @@ err()  { printf '\033[1;31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<EOF
-Usage : $0 [--iso FICHIER.iso] [options]
+Usage : $0 <create|run|list> [options]
 
-  --iso FICHIER    image d'installation (obligatoire au premier lancement)
+MODES
+  create --iso FICHIER   Cree un disque neuf et demarre l'installation depuis
+                         l'image ISO. Exige --iso.
+  run                    Lance une VM deja installee, depuis son disque.
+  list                   Liste les VM presentes dans le dossier et leur taille.
+
+  Sans verbe : "create" si le disque n'existe pas, "run" sinon.
+
+OPTIONS
+  --iso FICHIER    image d'installation (obligatoire pour create)
   --name NOM       nom de la VM            (defaut: $VM_NAME)
-  --dir CHEMIN     dossier du disque       (defaut: $OUT_DIR)
-  --disk-gb N      taille du disque en Gio (defaut: $DISK_GB)
+  --dir CHEMIN     dossier des disques     (defaut: $OUT_DIR)
+  --disk-gb N      taille du disque en Gio (defaut: $DISK_GB, create seulement)
   --ram-mb N       RAM en Mo               (defaut: 70% de la RAM hote)
   --cpus N         vCPU                    (defaut: nproc-2, plafonne a 8)
   --uefi           demarrage UEFI au lieu de BIOS
   --force          recree le disque meme s'il existe (DESTRUCTIF)
   --help
 
-Sans --iso et avec un disque existant, la VM redemarre depuis son disque.
+EXEMPLES
+  $0 create --iso ~/Downloads/debian-13-netinst.iso
+  $0 create --iso deb.iso --name iot-test --disk-gb 60 --ram-mb 8192
+  $0 run
+  $0 run --name iot-test
+  $0 list
 EOF
   exit 0
 }
+
+MODE=""
+case "${1:-}" in
+  create|run|list) MODE="$1"; shift ;;
+esac
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -83,6 +105,51 @@ _auto_cpus=$(( $(nproc) - 2 ))
 (( _auto_cpus < 1 )) && _auto_cpus=1
 VM_RAM_MB="${VM_RAM_MB:-$_auto_ram}"
 VM_VCPUS="${VM_VCPUS:-$_auto_cpus}"
+
+# ================= 0. LISTER LES VM =================
+list_vms() {
+  local found=0
+  echo "VM presentes dans ${OUT_DIR} :"
+  echo
+  shopt -s nullglob
+  for f in "$OUT_DIR"/*.qcow2; do
+    found=1
+    local n virt real etat
+    n=$(basename "$f" .qcow2)
+    # La sortie JSON contient un 'virtual-size' imbriqué pour le noeud fichier,
+    # place AVANT celui du disque : un grep -m1 dessus renvoie la mauvaise
+    # valeur. On lit donc la sortie lisible, dont la premiere ligne
+    # 'virtual size:' est bien celle du disque.
+    virt=$(qemu-img info "$f" 2>/dev/null | sed -n 's/^virtual size: \([^(]*\).*/\1/p' | head -1)
+    real=$(du -h "$f" 2>/dev/null | cut -f1)
+    if disk_has_system "$f"; then etat="systeme installe"; else etat="VIDE, jamais installe"; fi
+    printf '  %-20s %-12s virtuels, %6s reels   %s\n' \
+      "$n" "${virt:-?}" "$real" "$etat"
+  done
+  shopt -u nullglob
+  if (( ! found )); then
+    echo "  (aucune)"
+    echo
+    echo "Pour en creer une : $0 create --iso FICHIER.iso"
+  else
+    echo
+    echo "Pour en lancer une : $0 run --name NOM"
+  fi
+}
+
+# Un disque sans signature d'amorcage n'a jamais recu de systeme. Vaut aussi
+# pour l'UEFI, dont le MBR de protection porte la meme signature.
+disk_has_system() {
+  local sig
+  sig=$(qemu-io -r -f qcow2 -c 'read -v 510 2' "$1" 2>/dev/null | awk 'NR==1{print $2$3}')
+  [[ "$sig" == "55aa" ]]
+}
+
+if [[ "$MODE" == "list" ]]; then
+  [[ -d "$OUT_DIR" ]] || { echo "Dossier inexistant : $OUT_DIR"; exit 0; }
+  list_vms
+  exit 0
+fi
 
 # ================= 1. PREREQUIS =================
 log "Diagnostic des prerequis..."
@@ -164,31 +231,59 @@ if (( VM_RAM_MB < 12288 )); then
   warn "Fermer les autres applications, puis relancer avec --ram-mb $(( _host_ram_mb * 75 / 100 / 1024 * 1024 ))"
 fi
 
-# ================= 4. DISQUE =================
-INSTALL_MODE=0
-if [[ -f "$QCOW2_PATH" && "$FORCE" -eq 0 ]]; then
-  ok "Disque existant reutilise : $QCOW2_PATH"
-  [[ -n "$ISO" ]] && { INSTALL_MODE=1; warn "--iso fourni : demarrage sur l'ISO (le disque n'est PAS efface)."; }
-else
-  [[ -n "$ISO" ]] || err "Aucun disque a ${QCOW2_PATH} : fournir --iso pour installer le systeme."
-  [[ -f "$ISO"  ]] || err "ISO introuvable : $ISO"
-  if [[ -f "$QCOW2_PATH" ]]; then
-    warn "--force : le disque existant va etre EFFACE ($QCOW2_PATH)"
-    read -r -p "Confirmer la destruction ? [y/N] " a; [[ "$a" =~ ^[yY]$ ]] || exit 1
-    rm -f "$QCOW2_PATH"
-  fi
-  FREE_MB=$(df -Pm "$OUT_DIR" | awk 'NR==2{print $4}')
-  (( FREE_MB >= 20480 )) || warn "Seulement ${FREE_MB} Mo libres : le disque grossira a l'usage."
-  log "Creation du disque (${DISK_GB} Gio, alloue a la demande)..."
-  qemu-img create -f qcow2 "$QCOW2_PATH" "${DISK_GB}G" >/dev/null
-  ok "Disque cree : $QCOW2_PATH"
-  INSTALL_MODE=1
+# ================= 4. MODE ET DISQUE =================
+# Sans verbe explicite, on deduit : pas de disque -> create, sinon run.
+if [[ -z "$MODE" ]]; then
+  if [[ -f "$QCOW2_PATH" && "$FORCE" -eq 0 ]]; then MODE="run"; else MODE="create"; fi
+  log "Mode deduit : ${MODE} (utiliser '$0 create|run' pour le forcer)"
 fi
 
-if (( INSTALL_MODE )); then
-  [[ -f "$ISO" ]] || err "ISO introuvable : $ISO"
-  log "Mode INSTALLATION : demarrage sur $ISO"
-fi
+INSTALL_MODE=0
+case "$MODE" in
+  create)
+    [[ -n "$ISO" ]] || err "Le mode create exige une image : --iso FICHIER.iso"
+    [[ -f "$ISO" ]] || err "ISO introuvable : $ISO"
+    if [[ -f "$QCOW2_PATH" ]]; then
+      if (( FORCE )); then
+        warn "--force : le disque existant va etre EFFACE ($QCOW2_PATH)"
+        read -r -p "Confirmer la destruction ? [y/N] " a; [[ "$a" =~ ^[yY]$ ]] || exit 1
+        rm -f "$QCOW2_PATH"
+      else
+        err "'$VM_NAME' existe deja : $QCOW2_PATH
+     Pour la lancer      : $0 run --name $VM_NAME
+     Pour en creer une autre : $0 create --iso <iso> --name <autre-nom>
+     Pour l'ecraser      : ajouter --force (DESTRUCTIF)"
+      fi
+    fi
+    FREE_MB=$(df -Pm "$OUT_DIR" | awk 'NR==2{print $4}')
+    (( FREE_MB >= 20480 )) || warn "Seulement ${FREE_MB} Mo libres : le disque grossira a l'usage."
+    log "Creation du disque (${DISK_GB} Gio, alloue a la demande)..."
+    qemu-img create -f qcow2 "$QCOW2_PATH" "${DISK_GB}G" >/dev/null
+    ok "Disque cree : $QCOW2_PATH"
+    INSTALL_MODE=1
+    log "Mode CREATION : demarrage sur $ISO"
+    ;;
+
+  run)
+    if [[ ! -f "$QCOW2_PATH" ]]; then
+      warn "Aucune VM nommee '$VM_NAME' dans $OUT_DIR"
+      echo
+      list_vms
+      echo
+      err "Rien a lancer."
+    fi
+    if ! disk_has_system "$QCOW2_PATH"; then
+      err "Le disque de '$VM_NAME' ne contient aucun systeme amorcable.
+     Il a ete cree mais l'installation n'a jamais abouti.
+     Relancer l'installation : $0 create --iso <iso> --name $VM_NAME --force"
+    fi
+    ok "VM '$VM_NAME' : systeme detecte, demarrage sur le disque."
+    if [[ -n "$ISO" ]]; then
+      warn "--iso ignore en mode run. Pour reinstaller : $0 create --iso ... --force"
+      ISO=""
+    fi
+    ;;
+esac
 
 # ================= 5. COMMANDE QEMU =================
 QEMU_ARGS=(

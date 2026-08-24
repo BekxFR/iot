@@ -64,10 +64,15 @@ cree le disque, lance l'installation depuis l'image ISO, puis redemarre la VM
 sur son disque.
 
 ```bash
-./Docs/create-vm-qemu.sh --iso debian-13-netinst.iso   # installer
-./Docs/create-vm-qemu.sh                               # redemarrer ensuite
-./Docs/create-vm-qemu.sh --help                        # options
+./Docs/create-vm-qemu.sh create --iso debian-13-netinst.iso   # creer et installer
+./Docs/create-vm-qemu.sh run                                  # lancer une VM existante
+./Docs/create-vm-qemu.sh list                                 # lister les VM
+./Docs/create-vm-qemu.sh --help                               # toutes les options
 ```
+
+Plusieurs VM peuvent cohabiter dans le meme dossier, distinguees par `--name`.
+Sans verbe, le mode est deduit : `create` si le disque n'existe pas, `run`
+sinon, et le mode retenu est affiche avant le lancement.
 
 Il verifie les prerequis (KVM, acces a `/dev/kvm`, virtualisation imbriquee),
 dimensionne la VM sur la RAM reelle du poste, et redirige les ports utiles au
