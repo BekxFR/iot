@@ -1,0 +1,116 @@
+<!--
+  Definition libvirt de la VM hote Debian : l'equivalent du fichier .vbox de
+  VirtualBox. A importer en session utilisateur (aucun droit root requis) :
+
+    virsh -c qemu:///session define Docs/Debian-VM.libvirt.xml
+
+  Elle apparait ensuite dans virt-manager. Voir Docs/MIGRATION_QEMU.md.
+
+  DEUX VALEURS SONT SPECIFIQUES A LA MACHINE, a verifier avant tout import :
+
+    1. L'element 'disk / source file' : chemin du disque. Ici le SSD externe,
+       choisi parce qu'il survit au changement de poste, contrairement
+       a /goinfre qui est efface.
+    2. Les elements 'memory' et 'vcpu' : les postes de 42 n'ont pas tous
+       la meme RAM (15 Go ici, 31 Go ailleurs). 10 Gio conviennent a un
+       poste de 16 Go. Ajustable dans virt-manager, ou :
+         virsh -c qemu:///session setmaxmem Debian-VM 11G (option config)
+-->
+<domain type='kvm'>
+  <name>Debian-VM</name>
+  <uuid>c67a3bfe-62fb-42a0-a934-cfb75096045f</uuid>
+  <title>VM hote IoT (p1 a bonus)</title>
+  <description>VM Debian migree de VirtualBox vers QEMU/KVM. Heberge VirtualBox pour les VM Vagrant de p1 et p2, et Docker/k3d pour p3 et le bonus.</description>
+
+  <memory unit='MiB'>10240</memory>
+  <currentMemory unit='MiB'>10240</currentMemory>
+  <vcpu placement='static'>8</vcpu>
+
+  <os>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+
+  <!-- host-passthrough expose vmx a l'invite : indispensable pour que
+       VirtualBox fonctionne DANS la VM (p1 et p2). -->
+  <cpu mode='host-passthrough' check='none' migratable='off'>
+    <topology sockets='1' dies='1' cores='8' threads='1'/>
+  </cpu>
+
+  <clock offset='utc'>
+    <timer name='rtc' tickpolicy='catchup'/>
+    <timer name='pit' tickpolicy='delay'/>
+    <timer name='hpet' present='no'/>
+  </clock>
+
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+
+  <!-- Pas de mise en veille : elle casserait les VM imbriquees. -->
+  <pm>
+    <suspend-to-mem enabled='no'/>
+    <suspend-to-disk enabled='no'/>
+  </pm>
+
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+
+    <!-- Bus SATA : l'invite voit /dev/sda, comme sous VirtualBox, donc le
+         fstab et GRUB restent valides.
+         Pas de discard='unmap' : exFAT ne sait pas percer de trous. -->
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='writeback'/>
+      <source file='/run/media/chillion/Extreme SSD/QEMU/Debian-VM.qcow2'/>
+      <target dev='sda' bus='sata'/>
+    </disk>
+
+    <controller type='sata' index='0'/>
+    <controller type='usb' index='0' model='qemu-xhci' ports='15'/>
+
+    <!-- Reseau usermode via passt : aucun privilege root, et redirections
+         de ports vers l'hote. 10.0.2.0/24 cote invite, sans conflit avec
+         le 192.168.56.0/24 de p1 et p2 qui vit dans l'invite. -->
+    <interface type='user'>
+      <model type='virtio'/>
+      <backend type='passt'/>
+      <portForward proto='tcp' address='127.0.0.1'>
+        <range start='2222' to='22'/>
+        <range start='8888' to='8888'/>
+        <range start='8443' to='8443'/>
+        <range start='8080' to='8080'/>
+      </portForward>
+    </interface>
+
+    <!-- Tablette USB : pointeur absolu, sinon la souris se desynchronise. -->
+    <input type='tablet' bus='usb'/>
+    <input type='keyboard' bus='usb'/>
+
+    <graphics type='spice' autoport='yes'>
+      <listen type='address' address='127.0.0.1'/>
+      <image compression='off'/>
+    </graphics>
+    <video>
+      <model type='virtio' heads='1' primary='yes'/>
+    </video>
+
+    <!-- Agent SPICE : presse-papiers et redimensionnement automatique.
+         Sans effet si spice-vdagent n'est pas installe dans l'invite. -->
+    <channel type='spicevmc'>
+      <target type='virtio' name='com.redhat.spice.0'/>
+    </channel>
+
+    <!-- Entropie : k3s et GitLab generent beaucoup de certificats TLS. -->
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
+
+    <!-- Pas de ballooning : il perturbe la gestion memoire de Kubernetes. -->
+    <memballoon model='none'/>
+  </devices>
+</domain>

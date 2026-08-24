@@ -46,7 +46,13 @@ Migration de la VM hote pour debloquer la double imbrication sur CPU Intel recen
 - Ou se trouvent les fichiers de la VM utilises par QEMU
 - Comment lancer la VM, par script ou en ligne de commande QEMU detaillee
 - Les etapes restant a faire dans l'invite (reseau, Guest Additions, disque)
+- Lancement par interface graphique (virt-manager) ou en ligne de commande
+- Precautions de stockage sur le SSD externe
 - Depannage et retour arriere vers VirtualBox
+
+Fichiers associes dans ce meme repertoire :
+`migrate-vbox-to-qemu.sh` (script) et `Debian-VM.libvirt.xml` (definition
+de la VM pour virt-manager).
 
 Le script associe se trouve dans ce meme repertoire : `migrate-vbox-to-qemu.sh`.
 

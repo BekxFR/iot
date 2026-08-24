@@ -22,9 +22,22 @@ set -euo pipefail
 
 ### ---------- Parametres ----------
 VM_NAME="${VM_NAME:-Debian-VM}"
-VM_RAM_MB="${VM_RAM_MB:-16384}"          # 16 Go : bonus GitLab (~6 Go) + k3d + Argo CD + marge
-VM_VCPUS="${VM_VCPUS:-8}"                # 8 vCPU sur 24 threads : laisse Fedora respirer
-OUT_DIR="${OUT_DIR:-/goinfre/$USER/QEMU}" # disque LOCAL XFS, PAS l'exFAT USB
+# Dimensionnement ADAPTATIF : les postes de 42 n'ont pas tous la meme RAM
+# (31 Go sur l'un, 15 Go sur l'autre). Un chiffre en dur casse au changement
+# de machine. Par defaut : 70% de la RAM hote, arrondi au Gio inferieur,
+# plafonne a 16 Gio ; et nproc-2 vCPU, plafonne a 8.
+_host_ram_mb=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1024 ))
+_auto_ram=$(( _host_ram_mb * 70 / 100 / 1024 * 1024 ))
+(( _auto_ram > 16384 )) && _auto_ram=16384
+(( _auto_ram <  4096 )) && _auto_ram=4096
+_auto_cpus=$(( $(nproc) - 2 ))
+(( _auto_cpus > 8 )) && _auto_cpus=8
+(( _auto_cpus < 1 )) && _auto_cpus=1
+
+VM_RAM_MB="${VM_RAM_MB:-$_auto_ram}"     # surchargeable : VM_RAM_MB=11264 pour le bonus
+VM_VCPUS="${VM_VCPUS:-$_auto_cpus}"
+OUT_DIR="${OUT_DIR:-/run/media/$USER/Extreme SSD/QEMU}"  # survit au changement de machine
+                                         # voir ACCEPT_EXFAT et la section 4 de MIGRATION_QEMU.md
 FIRMWARE="${FIRMWARE:-bios}"             # "bios" ou "uefi" (doit correspondre a la VM VBox)
 DISK_GROW_GB="${DISK_GROW_GB:-60}"       # agrandissement du disque virtuel (0 = aucun)
 NET_BACKEND="${NET_BACKEND:-user}"       # "user" (SLIRP, sur) ou "passt" (plus rapide)
@@ -122,12 +135,19 @@ mkdir -p "$OUT_DIR"
 DEST_FS=$(findmnt -no FSTYPE -T "$OUT_DIR")
 case "$DEST_FS" in
   exfat|vfat|ntfs|ntfs3|fuseblk)
+    # Choix assume : le SSD externe survit au changement de machine, contrairement
+    # a /goinfre qui est efface. Contrepartie : pas de journal, donc une coupure
+    # ou un debranchement a chaud peut detruire les metadonnees qcow2.
+    # Une image a deja ete perdue ainsi le 24/08/2026.
     warn "OUT_DIR est sur '$DEST_FS' ($OUT_DIR)."
-    warn "Ce systeme de fichiers n'a ni fichiers creux ni journal : qcow2 lent et fragile."
-    warn "Recommande : OUT_DIR=/goinfre/$USER/QEMU (disque local)."
-    read -r -p "Continuer quand meme ? [y/N] " a; [[ "$a" =~ ^[yY]$ ]] || exit 1
+    warn "Pas de journal : demonter TOUJOURS proprement (udisksctl unmount -b /dev/sda1)"
+    warn "et arreter la VM avant, sinon l'image peut devenir illisible."
+    EXFAT_DEST=1
+    if [[ "${ACCEPT_EXFAT:-0}" != "1" ]]; then
+      read -r -p "Continuer quand meme ? [y/N] " a; [[ "$a" =~ ^[yY]$ ]] || exit 1
+    fi
     ;;
-  *) ok "Destination sur '$DEST_FS' : adapte." ;;
+  *) ok "Destination sur '$DEST_FS' : adapte."; EXFAT_DEST=0 ;;
 esac
 
 # ================= 3. DIMENSIONNEMENT =================
@@ -138,8 +158,10 @@ log "Hote : ${HOST_CPUS} threads, ${HOST_RAM_MB} Mo de RAM."
   || err "VM_RAM_MB=${VM_RAM_MB} depasse 75% de la RAM hote (${HOST_RAM_MB} Mo)."
 (( VM_VCPUS <= HOST_CPUS - 2 )) \
   || err "VM_VCPUS=${VM_VCPUS} laisse moins de 2 threads a l'hote."
-(( VM_RAM_MB >= 12288 )) \
-  || warn "VM_RAM_MB=${VM_RAM_MB} : le bonus (GitLab ~6 Go + k3d + Argo CD) risque l'OOM. 16384 conseille."
+if (( VM_RAM_MB < 12288 )); then
+  warn "VM_RAM_MB=${VM_RAM_MB} : le bonus (GitLab ~6 Go + k3d + Argo CD) sera juste."
+  warn "Pour le bonus, fermer les autres applications puis : VM_RAM_MB=$(( _host_ram_mb * 75 / 100 / 1024 * 1024 ))"
+fi
 ok "Dimensionnement : ${VM_VCPUS} vCPU / ${VM_RAM_MB} Mo."
 
 # ================= 4. CONVERSION =================
@@ -195,6 +217,21 @@ fi
 
 [[ -f "$QCOW2_PATH" ]] || err "Aucun qcow2 a demarrer : $QCOW2_PATH"
 
+# ---- Garde-fou : jamais deux machines sur le meme disque ----
+# La VM est aussi definie dans libvirt (virt-manager). Demarrer les deux en
+# meme temps sur le meme qcow2 le corromprait.
+if command -v virsh >/dev/null 2>&1; then
+  LIBVIRT_STATE=$(virsh -c qemu:///session domstate "$VM_NAME" 2>/dev/null | tr -d ' \n' || true)
+  if [[ "$LIBVIRT_STATE" == "running" || "$LIBVIRT_STATE" == "paused" ]]; then
+    err "'$VM_NAME' tourne deja sous libvirt/virt-manager (etat: $LIBVIRT_STATE).
+     Utiliser virt-manager, ou l'arreter : virsh -c qemu:///session shutdown $VM_NAME"
+  fi
+fi
+if pgrep -af "qemu-system-x86_64.*${QCOW2_PATH}" >/dev/null 2>&1; then
+  err "Un processus QEMU utilise deja $QCOW2_PATH.
+     Le demarrer deux fois corromprait le disque."
+fi
+
 # ================= 5. CONSTRUCTION DE LA COMMANDE QEMU =================
 QEMU_ARGS=(
   -name "$VM_NAME"
@@ -228,9 +265,12 @@ if [[ "$DISK_BUS" == "virtio" ]]; then
   warn "DISK_BUS=virtio : l'invite verra /dev/vda. A n'utiliser qu'apres avoir verifie"
   warn "que l'initramfs contient virtio_blk (lsinitramfs / update-initramfs -u)."
 else
+  # discard=unmap est inutile sur exFAT (pas de punch-hole) : on l'omet.
+  DRIVE_OPTS="file=$QCOW2_PATH,format=qcow2,if=none,id=hd0,cache=writeback"
+  (( EXFAT_DEST )) || DRIVE_OPTS+=",discard=unmap"
   QEMU_ARGS+=(
     -device ahci,id=ahci
-    -drive file="$QCOW2_PATH",format=qcow2,if=none,id=hd0,cache=writeback,discard=unmap
+    -drive "$DRIVE_OPTS"
     -device ide-hd,drive=hd0,bus=ahci.0        # /dev/sda comme sous VirtualBox : fstab par UUID inchange
   )
 fi
