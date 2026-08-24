@@ -21,7 +21,7 @@ Cette partie met en place un cluster Kubernetes K3s distribué sur 2 machines vi
 
 - Réseau privé : `192.168.56.0/24`
 - Interface réseau : seconde interface créée par `private_network`. Son nom
-  dépend de la distribution (`enp0s8` sur Ubuntu 26.04, `eth1` sur des boxes
+  depend de la distribution (`enp0s8` sur Debian 13, `eth1` sur des boxes
   plus anciennes) : les scripts la déduisent de l'IP au lieu de la coder en dur.
   Pour l'afficher pendant l'évaluation : `ip a`
 - Communication SSH sans mot de passe configurée
@@ -57,7 +57,7 @@ Cette partie met en place un cluster Kubernetes K3s distribué sur 2 machines vi
    - kubectl installé et configuré
 
 6. **Distribution** :
-   - Ubuntu 26.04 LTS (`bento/ubuntu-26.04`) - dernière version stable
+   - Debian 13 "Trixie" (`bento/debian-13`) - derniere version stable de Debian
 
 ## Structure des fichiers
 
@@ -129,8 +129,8 @@ kubectl cluster-info
 ```bash
 $ kubectl get nodes -o wide
 NAME        STATUS   ROLES                  AGE   VERSION        INTERNAL-IP       EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-chillions   Ready    control-plane,master   2m    v1.3x.x+k3s1   192.168.56.110   <none>        Ubuntu 26.04 LTS   6.x-generic    containerd://2.x-k3s1
-chillionsw  Ready    <none>                 1m    v1.3x.x+k3s1   192.168.56.111   <none>        Ubuntu 26.04 LTS   6.x-generic    containerd://2.x-k3s1
+chillions   Ready    control-plane,master   2m    v1.3x.x+k3s1   192.168.56.110   <none>        Debian GNU/Linux 13   6.x-amd64      containerd://2.x-k3s1
+chillionsw  Ready    <none>                 1m    v1.3x.x+k3s1   192.168.56.111   <none>        Debian GNU/Linux 13   6.x-amd64      containerd://2.x-k3s1
 ```
 
 ## Fonctionnalités techniques
@@ -156,7 +156,7 @@ chillionsw  Ready    <none>                 1m    v1.3x.x+k3s1   192.168.56.111 
 - **Service CIDR** : `10.43.0.0/16`
 - **Cluster CIDR** : `10.42.0.0/16`
 - **Interface** : seconde interface du réseau privé Vagrant (`enp0s8` sur
-  Ubuntu 26.04), détectée à partir de l'IP et passée à `--flannel-iface`
+  Debian 13), detectee a partir de l'IP et passee a `--flannel-iface`
 
 ## Gestion du cluster
 

@@ -24,7 +24,7 @@ iot/
 
 #### Machines virtuelles
 - **Nombre** : Exactement 2 machines
-- **Distribution** : Version stable la plus récente (Ubuntu 26.04 LTS, box `bento/ubuntu-26.04`)
+- **Distribution** : Version stable la plus recente (Debian 13 "Trixie", box `bento/debian-13`)
 - **Ressources minimales** : 
   - 1 CPU par machine
   - 512 MB ou 1024 MB de RAM (1024 MB choisi)

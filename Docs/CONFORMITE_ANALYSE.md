@@ -8,7 +8,7 @@ Reference: Docs/iot.en.subject.pdf (v4.0)
 - [x] 2 machines via Vagrant (chillionS + chillionSW)
 - [x] Hostnames = login + S / SW, noms VirtualBox identiques
 - [x] IPs : 192.168.56.110 (server), 192.168.56.111 (worker)
-- [x] Derniere version stable de la distribution : Ubuntu 26.04 LTS (`bento/ubuntu-26.04`)
+- [x] Derniere version stable de la distribution : Debian 13 "Trixie" (`bento/debian-13`)
 - [x] SSH sans mot de passe (cle generee et inseree par Vagrant)
 - [x] 1 CPU, 1024 MB RAM
 - [x] K3s server en mode controller
@@ -18,7 +18,7 @@ Reference: Docs/iot.en.subject.pdf (v4.0)
 
 ## Partie 2 : K3s et 3 applications - CONFORME
 
-- [x] 1 seule VM (llarreyS), IP 192.168.56.110, Ubuntu 26.04 LTS
+- [x] 1 seule VM (llarreyS), IP 192.168.56.110, Debian 13 "Trixie"
 - [x] K3s en mode server
 - [x] 3 applications web (app1, app2, app3)
 - [x] Routage HOST : app1.com -> app1, app2.com -> app2, defaut -> app3

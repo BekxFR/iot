@@ -178,7 +178,7 @@ Outil de HashiCorp qui **decrit une machine virtuelle dans un fichier**
 (le `Vagrantfile`, en Ruby) et pilote un hyperviseur (ici VirtualBox) pour la
 creer de facon reproductible. Les points cles :
 
-- une *box* est une image de base (`bento/ubuntu-26.04`)
+- une *box* est une image de base (`bento/debian-13`)
 - `config.vm.network "private_network", ip: ...` cree une interface hote-invite
 - les *provisioners* (ici `shell`) executent des scripts au premier `vagrant up`
 - le dossier du `Vagrantfile` est monte automatiquement dans `/vagrant` sur l'invite
@@ -225,8 +225,8 @@ a la main, on pousse un commit et Argo CD reconcilie."*
 |---|---|
 | Un `Vagrantfile` est present dans `p1` | `p1/Vagrantfile` |
 | Le groupe sait expliquer son contenu | voir ci-dessous |
-| Il y a **deux** machines virtuelles | `p1/Vagrantfile:22` et `:38` (deux blocs `config.vm.define`) |
-| Derniere version stable de la distribution | `p1/Vagrantfile:5` -> `bento/ubuntu-26.04` (Ubuntu 26.04 LTS) |
+| Il y a **deux** machines virtuelles | `p1/Vagrantfile:32` et `:48` (deux blocs `config.vm.define`) |
+| Derniere version stable de la distribution | `p1/Vagrantfile:5` -> `bento/debian-13` (Debian 13 "Trixie") |
 | L'interface reseau primaire porte l'IP du sujet | `p1/Vagrantfile:9-10` -> `.110` et `.111` |
 | Les noms contiennent un login du groupe, suivi de `S` et `SW` | `p1/Vagrantfile:7-8` -> `chillionS`, `chillionSW` |
 
@@ -238,7 +238,10 @@ cat p1/Vagrantfile
 
 **A expliquer, ligne par ligne**
 
-- `config.vm.box = "bento/ubuntu-26.04"` : l'image de base, derniere LTS Ubuntu.
+- `config.vm.box = "bento/debian-13"` : l'image de base, derniere stable Debian.
+- `config.vm.box_version` : build figee, pour qu'une republication de la box ne
+  change rien la veille de la soutenance.
+- `config.vm.boot_timeout = 900` : marge de demarrage sur une machine chargee.
 - `vb.memory = 1024 / vb.cpus = 1` : les ressources minimales imposees par le sujet.
 - `config.vm.define SERVER_NAME` : declare la premiere VM ; `server.vm.hostname`
   fixe le hostname **dans** l'invite, et `vb.name` fixe le nom **VirtualBox**
@@ -257,8 +260,8 @@ l'agent le lit depuis ce dossier synchronise
 partagee entre VMs.
 
 **Piege** : *"If something does not work as expected, the evaluation stops here."*
-Si `bento/ubuntu-26.04` n'est pas deja telecharge, `vagrant up` part chercher
-~700 Mo sur le reseau. **Pre-telecharger la box la veille** (voir la section
+Si `bento/debian-13` n'est pas deja telecharge, `vagrant up` part chercher
+plusieurs centaines de Mo sur le reseau. **Pre-telecharger la box la veille** (voir la section
 Preparation).
 
 ---
@@ -352,9 +355,9 @@ chillionSW   Ready    <none>                 3m    v1.xx.x+k3s1   192.168.56.111
 | Point de la grille | Ou c'est prouve |
 |---|---|
 | Un `Vagrantfile` est present dans `p2` | `p2/Vagrantfile` |
-| Il n'y a qu'**une seule** VM | `p2/Vagrantfile:14` (un seul `config.vm.define`) |
-| Derniere version stable de la distribution | `p2/Vagrantfile:5` -> `bento/ubuntu-26.04` |
-| L'interface primaire porte l'IP du sujet | `p2/Vagrantfile:8` et `:16` -> `192.168.56.110` |
+| Il n'y a qu'**une seule** VM | `p2/Vagrantfile:16` (un seul `config.vm.define`) |
+| Derniere version stable de la distribution | `p2/Vagrantfile:5` -> `bento/debian-13` |
+| L'interface primaire porte l'IP du sujet | `p2/Vagrantfile:8` et `:18` -> `192.168.56.110` |
 | Le nom contient un login du groupe suivi de `S` | `p2/Vagrantfile:7` -> `llarreyS` (login d'un autre membre du groupe que p1) |
 | Les fichiers supplementaires sont expliques | voir ci-dessous |
 
@@ -909,7 +912,7 @@ echouent.
 **2. Pre-telecharger tout ce qui vient du reseau**
 
 ```bash
-vagrant box add bento/ubuntu-26.04                   # ~700 Mo, valide aussi que la box existe
+vagrant box add bento/debian-13 --box-version 202510.26.0   # valide aussi que la box existe
 docker pull wil42/playground:v1
 docker pull wil42/playground:v2
 helm repo add gitlab https://charts.gitlab.io/ && helm repo update
@@ -952,7 +955,7 @@ make VM_STORAGE=$HOME/iot-vms p1
 [ ] Depot clone dans un dossier vide, sur la machine du groupe, VM 42
 [ ] find -maxdepth 2 montre p1/ p2/ p3/ bonus/ avec scripts/ et confs/
 [ ] Je sais expliquer : K3s, Vagrant, K3d, CI + Argo CD
-[ ] p1 : 2 VMs, bento/ubuntu-26.04, .110 et .111, chillionS et chillionSW
+[ ] p1 : 2 VMs, bento/debian-13, .110 et .111, chillionS et chillionSW
 [ ] p1 : ssh sur les 2, ip a, hostname, systemctl k3s / k3s-agent
 [ ] p1 : kubectl get nodes -o wide montre 2 nodes Ready, et je sais lire la sortie
 [ ] Q3 et Q4 entierement terminees : make p2 detruira p1 sans retour
