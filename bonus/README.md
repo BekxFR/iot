@@ -265,6 +265,48 @@ Le chart Helm est configuré avec des paramètres minimaux (`confs/gitlab-values
    est devenu l'alias du sous-chart jetstack, dont le schéma de validation
    refuse les clés inconnues : l'ancienne forme fait échouer `helm`.
 
+### Allègement pour poste contraint
+
+Sur un poste de 16 Go, la VM hôte reçoit environ 10 Go et GitLab réclame ~6 Go
+à lui seul : la marge est nulle et l'hôte finit par tuer le processus QEMU.
+`confs/gitlab-values.yaml` retire donc ce qui ne sert pas au bonus.
+
+Le sujet demande d'héberger un dépôt Git et de laisser Argo CD le lire.
+Sauvegardes, métriques Prometheus, réception d'emails et stockage objet n'y
+participent pas :
+
+| Composant retiré | Réservation récupérée | Rôle supprimé |
+|---|---|---|
+| `gitlab.toolbox` | 350 M | sauvegarde et restauration |
+| `gitlab.gitlab-exporter` | 100 M | métriques Prometheus |
+| `gitlab.mailroom` | 150 M | emails entrants |
+| `global.minio` | 128 Mi | stockage objet |
+
+Désactiver MinIO est sans risque ici : tous les usages qui le consommeraient
+(`lfs`, `artifacts`, `uploads`, `packages`, `terraformState`) sont déjà coupés,
+et `externalDiffs`, `dependencyProxy`, `ciSecureFiles` valent `false` par
+défaut. Le `checkConfig` du stockage objet ne se déclenche donc pas. Il fallait
+en revanche désactiver `toolbox` en même temps, sinon le chart réclame un
+secret de sauvegarde.
+
+Deux réglages agissent sur la mémoire **réellement consommée**, pas seulement
+sur les réservations :
+
+- `gitlab.sidekiq.concurrency` passe de 20 à 5. Chaque thread Sidekiq porte son
+  propre jeu d'objets Ruby, et le bonus n'a qu'un utilisateur.
+- `gitlab.sidekiq.memoryKiller.maxRss` passe de 2 Go à 1 Go : un worker qui
+  gonfle est redémarré plus tôt.
+
+Les `resources.requests` de `webservice` (2,5 G -> 1,5 G) et `sidekiq`
+(2 G -> 1 G) n'agissent que sur l'ordonnancement : elles évitent des pods
+bloqués en `Pending` sur un cluster k3d contraint, sans réduire l'usage réel.
+
+Au total, environ 2,7 Go de réservations libérées et quatre pods en moins.
+
+**Non testé.** La validation demande un déploiement GitLab complet dans la VM.
+Si le bonus plante encore, le levier suivant est côté hôte : fermer VS Code,
+Chrome et Discord avant `make bonus`, puis monter la VM à `VM_RAM_MB=11264`.
+
 ### Images PostgreSQL et Redis redirigées
 
 Bitnami a retiré de Docker Hub tous les tags versionnés de ses images ; seul

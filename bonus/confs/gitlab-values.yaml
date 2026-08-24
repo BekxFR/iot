@@ -15,6 +15,12 @@ global:
     enabled: false
   pages:
     enabled: false
+  # Stockage objet desactive : tous les usages qui le consommeraient
+  # (lfs, artifacts, uploads, packages, terraformState) sont coupes ci-dessous,
+  # et externalDiffs / dependencyProxy / ciSecureFiles sont deja a false par
+  # defaut. Le checkConfig objectStorage ne se declenche donc pas.
+  minio:
+    enabled: false
   appConfig:
     lfs:
       enabled: false
@@ -53,14 +59,45 @@ gitlab:
   webservice:
     minReplicas: 1
     maxReplicas: 1
+    # Reservation ramenee de 2.5G a 1.5G : sur un cluster k3d contraint, une
+    # demande trop haute laisse le pod en Pending. N'agit que sur l'ordonnancement.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1500M
   sidekiq:
     minReplicas: 1
     maxReplicas: 1
+    # concurrency 20 -> 5 : c'est le vrai levier sur la memoire CONSOMMEE.
+    # Chaque thread Sidekiq porte son propre jeu d'objets Ruby, et le bonus
+    # n'a qu'un seul utilisateur.
+    concurrency: 5
+    # Un worker qui depasse 1 Go est redemarre, au lieu de 2 Go par defaut.
+    memoryKiller:
+      maxRss: 1000000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1G
   gitlab-shell:
     minReplicas: 1
     maxReplicas: 1
+  gitaly:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 200Mi
   kas:
     enabled: false
+  # Composants inutiles au bonus : le sujet demande d'heberger un depot Git et
+  # de laisser Argo CD le lire. Sauvegardes, metriques Prometheus et reception
+  # d'emails n'y participent pas.
+  toolbox:
+    enabled: false      # utilitaire de sauvegarde/restauration
+  gitlab-exporter:
+    enabled: false      # exporteur de metriques Prometheus
+  mailroom:
+    enabled: false      # traitement des emails entrants
 
 # --- Images PostgreSQL et Redis : redirection vers bitnamilegacy ---
 #
