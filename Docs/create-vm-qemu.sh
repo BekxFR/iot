@@ -39,13 +39,19 @@ err()  { printf '\033[1;31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<EOF
-Usage : $0 <create|run|list> [options]
+Usage : $0 <create|run|list|compact> [options]
 
 MODES
   create --iso FICHIER   Cree un disque neuf et demarre l'installation depuis
                          l'image ISO. Exige --iso.
   run                    Lance une VM deja installee, depuis son disque.
   list                   Liste les VM presentes dans le dossier et leur taille.
+  compact                Reecrit le disque en supprimant les blocs vides, VM
+                         eteinte. Un qcow2 ne retrecit jamais tout seul : il
+                         grossit a chaque lancement des parties et ne rend
+                         l'espace qu'ici. Zeroter l'espace libre DANS l'invite
+                         d'abord, sinon le gain sera faible :
+                           sudo dd if=/dev/zero of=/zero bs=1M status=none; sync; sudo rm -f /zero
 
   Sans verbe : "create" si le disque n'existe pas, "run" sinon.
 
@@ -74,7 +80,7 @@ EOF
 
 MODE=""
 case "${1:-}" in
-  create|run|list) MODE="$1"; shift ;;
+  create|run|list|compact) MODE="$1"; shift ;;
 esac
 
 while [[ $# -gt 0 ]]; do
@@ -165,6 +171,57 @@ disk_has_system() {
 }
 
 log "Dossier des disques : ${OUT_DIR}  (${OUT_DIR_ORIGIN})"
+
+# ================= 0 bis. COMPACTER UN DISQUE =================
+# qcow2 alloue a la demande mais ne rend jamais l'espace de lui-meme. Sur un
+# stockage sans punch-hole (exFAT du SSD externe), discard=unmap est desactive :
+# meme un fstrim dans l'invite ne libere rien. La seule recuperation est cette
+# reecriture hors ligne, qui laisse tomber les clusters entierement nuls.
+compact_vm() {
+  local src="$QCOW2_PATH" tmp="${QCOW2_PATH}.compact"
+  [[ -f "$src" ]] || err "Disque introuvable : $src"
+
+  # Compacter un disque en cours d'utilisation le corromprait.
+  if command -v virsh >/dev/null 2>&1; then
+    local st
+    st=$(virsh -c qemu:///session domstate "$VM_NAME" 2>/dev/null | tr -d ' \n' || true)
+    [[ "$st" == "running" || "$st" == "paused" ]] \
+      && err "'$VM_NAME' tourne sous libvirt (etat: $st). Eteindre la VM d'abord."
+  fi
+  if pgrep -af "qemu-system-x86_64.*${src}" >/dev/null 2>&1; then
+    err "Un processus QEMU utilise deja $src. Eteindre la VM d'abord."
+  fi
+
+  local before after freed free_mb
+  before=$(du -m "$src" | cut -f1)
+  free_mb=$(df -Pm "$OUT_DIR" | awk 'NR==2{print $4}')
+  (( free_mb > before )) || err "Espace insuffisant dans $OUT_DIR pour la copie de travail :
+     ${free_mb} Mo libres, ${before} Mo necessaires."
+
+  log "Taille actuelle : ${before} Mo"
+  warn "Le gain reste faible si l'espace libre de l'invite n'a pas ete zerote."
+  warn "Dans l'invite, avant d'eteindre : sudo dd if=/dev/zero of=/zero bs=1M status=none; sync; sudo rm -f /zero"
+
+  qemu-img convert -p -O qcow2 "$src" "$tmp" \
+    || err "Conversion echouee. L'original est intact : $src"
+  qemu-img check "$tmp" >/dev/null 2>&1 \
+    || err "Image compactee incoherente, l'original est conserve. A examiner : $tmp"
+
+  mv -f "$tmp" "$src"
+  after=$(du -m "$src" | cut -f1)
+  freed=$(( before - after ))
+  if (( freed > 0 )); then
+    ok "Compactage termine : ${before} Mo -> ${after} Mo (${freed} Mo liberes)"
+  else
+    ok "Compactage termine : ${before} Mo -> ${after} Mo, deja compact."
+    log "Rien a recuperer sans zeroter l'espace libre de l'invite au prealable."
+  fi
+}
+
+if [[ "$MODE" == "compact" ]]; then
+  compact_vm
+  exit 0
+fi
 
 if [[ "$MODE" == "list" ]]; then
   [[ -d "$OUT_DIR" ]] || { echo "Dossier inexistant : $OUT_DIR"; exit 0; }

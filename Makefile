@@ -4,7 +4,7 @@
         bonus bonus-install bonus-setup bonus-gitlab bonus-gitlab-deploy bonus-gitlab-configure \
         bonus-deploy bonus-test bonus-clean bonus-status bonus-down \
         clean fclean cleanup-files status help check check-requirements logs-clean check-versions \
-        vbox-prune
+        vbox-prune reclaim
 
 # Variables de configuration
 VAGRANT_P1_DIR = p1
@@ -87,6 +87,9 @@ help:
 	@echo "    make p3 arrête iot-bonus, et make bonus arrête iot-cluster (k3d cluster stop)."
 	@echo "  make bonus arrête aussi les VM Vagrant : GitLab réclame ~6 Go de RAM."
 	@echo ""
+	@echo "$(YELLOW)Liberation des ressources:$(NC)"
+	@echo "  make reclaim      - Recupere l'espace disque des lancements precedents"
+	@echo ""
 	@echo "$(YELLOW)Documentation et aide:$(NC)"
 	@echo "  make help         - Affiche cette aide"
 	@echo "  make check        - Vérifie la conformité aux consignes"
@@ -108,6 +111,32 @@ vbox-prune:
 	        || echo "$(RED)Echec du desenregistrement de $$uuid$(NC)"; \
 	    done; \
 	exit 0
+
+# ==================== LIBERATION DES RESSOURCES ====================
+# A lancer quand le disque de la VM se remplit apres plusieurs cycles de
+# lancement des differentes parties.
+#
+# Ne supprime que ce qui n'est plus reference : images pendantes et volumes
+# anonymes orphelins. Les clusters K3d arretes sont SIGNALES, jamais detruits :
+# p3-down et bonus-down les arretent volontairement pour liberer les ports
+# 8888/8443/6550, et k3d cluster start les rallume tels quels.
+reclaim:
+	@echo "$(BLUE)Occupation Docker avant :$(NC)"
+	@docker system df 2>/dev/null || echo "$(RED)Docker inaccessible$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Clusters K3d arretes (conserves) :$(NC)"
+	@k3d cluster list --no-headers 2>/dev/null \
+	  | awk '$$2 ~ /^0\// {n++; printf "  %-14s relancer: k3d cluster start %-12s supprimer: k3d cluster delete %s\n", $$1, $$1, $$1} \
+	         END {if (!n) print "  (aucun)"}' || true
+	@echo ""
+	@echo "$(YELLOW)Suppression des images pendantes et des volumes orphelins...$(NC)"
+	@docker image prune -f  2>/dev/null || true
+	@docker volume prune -f 2>/dev/null || true
+	@echo ""
+	@echo "$(BLUE)Occupation Docker apres :$(NC)"
+	@docker system df 2>/dev/null || true
+	@echo "$(GREEN)Pensez aussi a compacter le disque de la VM hote :$(NC)"
+	@echo "  ./Docs/create-vm-qemu.sh compact --name <VM> --dir <dossier>"
 
 # ==================== PARTIE 1 ====================
 p1: p1-up

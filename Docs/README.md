@@ -67,7 +67,19 @@ sur son disque.
 ./Docs/create-vm-qemu.sh create --iso debian-13-netinst.iso   # creer et installer
 ./Docs/create-vm-qemu.sh run                                  # lancer une VM existante
 ./Docs/create-vm-qemu.sh list                                 # lister les VM
+./Docs/create-vm-qemu.sh compact --name NOM                   # recuperer l'espace disque
 ./Docs/create-vm-qemu.sh --help                               # toutes les options
+```
+
+**Recuperer l'espace disque** : un qcow2 grossit a chaque lancement des parties
+et ne retrecit jamais de lui-meme. Sur un stockage sans punch-hole (exFAT du
+SSD externe), `discard=unmap` est desactive, donc meme un `fstrim` dans
+l'invite ne rend rien. Le mode `compact` reecrit le disque hors ligne, VM
+eteinte, en laissant tomber les blocs entierement nuls. Pour que le gain soit
+reel, zeroter l'espace libre dans l'invite juste avant de l'eteindre :
+
+```bash
+sudo dd if=/dev/zero of=/zero bs=1M status=none; sync; sudo rm -f /zero
 ```
 
 Plusieurs VM peuvent cohabiter dans le meme dossier, distinguees par `--name`.
