@@ -28,8 +28,13 @@ global:
       enabled: false
 
 # Desactiver les sous-charts non necessaires
-certmanager:
-  install: false
+#
+# La cle a change de nom : le chart 9.0.0 a remplace `certmanager.install` par
+# `installCertmanager` a la racine. Depuis, `certmanager` est l'alias du vrai
+# sous-chart jetstack, qui embarque un values.schema.json en
+# additionalProperties:false : y injecter une cle `install` inconnue fait
+# echouer helm a la validation.
+installCertmanager: false
 
 nginx-ingress:
   enabled: false
@@ -56,3 +61,66 @@ gitlab:
     maxReplicas: 1
   kas:
     enabled: false
+
+# --- Images PostgreSQL et Redis : redirection vers bitnamilegacy ---
+#
+# Bitnami a retire de Docker Hub tous les tags versionnes de ses images : seul
+# `latest` subsiste sous `bitnami/`, le reste a ete deplace sous
+# `bitnamilegacy/`. Les tags references par le chart 9.11.12 renvoient donc 404
+# et le deploiement part en ImagePullBackOff sur la base et le cache.
+#
+# Les tags ci-dessous sont ceux du chart 9.11.12 : ils doivent etre reajustes
+# si CHART_VERSION change dans scripts/deploy_gitlab.sh.
+#
+# Reserve : `bitnamilegacy` est une archive presentee comme transitoire par
+# Bitnami. Si elle disparait, il faudra passer a une base PostgreSQL et un
+# Redis externes (images officielles `postgres` et `redis`) et renseigner
+# `global.psql` et `global.redis` : c'est la voie supportee depuis le chart
+# 10.0.0, qui ne groupe plus du tout PostgreSQL, Redis ni MinIO.
+
+postgresql:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 16.1.0-debian-11-r25
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+      tag: 11-debian-11-r95
+  metrics:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgres-exporter
+      tag: 0.15.0-debian-11-r7
+
+redis:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+    tag: 7.2.4-debian-12-r9
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+      tag: 12-debian-12-r16
+  sentinel:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/redis-sentinel
+      tag: 7.2.4-debian-12-r7
+  metrics:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/redis-exporter
+      tag: 1.58.0-debian-12-r4
+  kubectl:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/kubectl
+      tag: 1.29.2-debian-12-r3
+  sysctl:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+      tag: 12-debian-12-r16

@@ -244,10 +244,40 @@ Utilisateur push vers GitLab local
 ## Configuration GitLab
 
 Le chart Helm est configuré avec des paramètres minimaux (`confs/gitlab-values.yaml`) :
-- Pas de certmanager, nginx-ingress, prometheus, runner, registry, KAS, pages
+- Pas de cert-manager, nginx-ingress, prometheus, runner, registry, KAS, pages
 - Replicas réduites à 1
 - HTTP uniquement (pas de TLS)
 - Communication Argo CD -> GitLab via DNS interne Kubernetes
+
+### Version du chart épinglée à 9.11.12
+
+`scripts/deploy_gitlab.sh` fixe `CHART_VERSION="9.11.12"` (GitLab 18.11.11).
+**Ne pas repasser sur la dernière version publiée**, pour deux raisons :
+
+1. **Le chart 10.0.0 (GitLab 19.0.0) a supprimé les sous-charts PostgreSQL,
+   Redis et MinIO groupés.** Il exige désormais une base de données externe.
+   Le message du chart est explicite : *"The bundled PostgreSQL chart has been
+   removed... Please migrate to an external PostgreSQL"*. 9.11.12 est le
+   dernier chart de la série 9.x, qui les fournit encore.
+
+2. **La clé `certmanager.install` n'existe plus depuis le chart 9.0.0**, où
+   elle a été remplacée par `installCertmanager` à la racine. `certmanager`
+   est devenu l'alias du sous-chart jetstack, dont le schéma de validation
+   refuse les clés inconnues : l'ancienne forme fait échouer `helm`.
+
+### Images PostgreSQL et Redis redirigées
+
+Bitnami a retiré de Docker Hub tous les tags versionnés de ses images ; seul
+`latest` subsiste sous `bitnami/`, le reste a été déplacé sous
+`bitnamilegacy/`. Sans redirection, le déploiement part en `ImagePullBackOff`
+sur la base et le cache. `confs/gitlab-values.yaml` réécrit donc les huit
+images concernées vers `bitnamilegacy/`.
+
+Ces tags correspondent au chart 9.11.12 : **les réajuster si `CHART_VERSION`
+change**. `bitnamilegacy` étant une archive présentée comme transitoire, la
+solution durable en cas de disparition sera de déployer un PostgreSQL et un
+Redis externes (images officielles `postgres` et `redis`) et de renseigner
+`global.psql` et `global.redis`.
 
 ## Nettoyage
 

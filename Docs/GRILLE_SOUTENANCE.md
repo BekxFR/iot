@@ -722,14 +722,14 @@ ls -R bonus
 
 | Fichier | Role a expliquer |
 |---|---|
-| `confs/gitlab-values.yaml` | Values Helm minimales : desactive certmanager, nginx-ingress, prometheus, runner, registry, KAS, pages, LFS, artifacts ; force 1 replica par composant ; HTTP sans TLS. Sans ce fichier, le chart officiel deploie ~30 pods et sature la machine. |
+| `confs/gitlab-values.yaml` | Values Helm minimales : desactive cert-manager (cle `installCertmanager`), nginx-ingress, prometheus, runner, registry, KAS, pages, LFS, artifacts ; force 1 replica par composant ; HTTP sans TLS. Sans ce fichier, le chart officiel deploie ~30 pods et sature la machine. |
 | `confs/application.yaml` | La ressource `Application` d'Argo CD, identique a p3 **sauf le `repoURL`** qui pointe sur le GitLab interne. |
 | `confs/deployment.yaml` | `wil42/playground:v1`, namespace `dev`, port 8888. Pousse dans GitLab par `configure_gitlab.sh`. |
 | `confs/service.yaml` | `ClusterIP` sur 8888. |
 | `confs/ingress.yaml` | `Ingress` Traefik vers le service. |
 | `scripts/install.sh` | Ajoute Helm aux outils de p3 (+ `git` et `jq`). |
 | `scripts/setup_cluster.sh` | Cluster `iot-bonus` + Argo CD + **3 namespaces** : `argocd`, `dev`, `gitlab`. |
-| `scripts/deploy_gitlab.sh` | `helm upgrade --install gitlab gitlab/gitlab` avec les values ci-dessus. |
+| `scripts/deploy_gitlab.sh` | `helm upgrade --install gitlab gitlab/gitlab --version 9.11.12` avec les values ci-dessus. Version epinglee : le chart 10.0.0 a supprime les sous-charts PostgreSQL, Redis et MinIO groupes. Voir `bonus/README.md`. |
 | `scripts/configure_gitlab.sh` | Cree un token, cree le projet `iot-app`, y pousse les manifests, et enregistre le depot dans Argo CD via un `Secret`. |
 | `scripts/deploy_app.sh` | Applique `application.yaml` et attend la synchro. |
 | `scripts/test.sh` / `cleanup.sh` | Verification complete / suppression du cluster. |

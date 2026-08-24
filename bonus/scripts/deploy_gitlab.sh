@@ -4,6 +4,14 @@ echo "=== Deploiement de GitLab via Helm - Bonus ==="
 
 NAMESPACE_GITLAB="gitlab"
 
+# Version de chart EPINGLEE. Ne pas repasser sur "derniere version" :
+#   - le chart 10.0.0 (GitLab 19.0.0) a supprime les sous-charts PostgreSQL,
+#     Redis et MinIO groupes ; il exige desormais une base externe.
+#   - 9.11.12 est le dernier chart de la serie 9.x, qui les groupe encore.
+# Les tags d'images bitnamilegacy de confs/gitlab-values.yaml correspondent a
+# CETTE version : les reajuster si elle change.
+CHART_VERSION="9.11.12"
+
 # Verification du cluster
 if ! kubectl get nodes >/dev/null 2>&1; then
     echo "[FAIL] Cluster K3d non accessible. Lancez d'abord : ./scripts/setup_cluster.sh"
@@ -16,12 +24,13 @@ helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 
 # Installation de GitLab
-echo "Installation de GitLab dans le namespace '$NAMESPACE_GITLAB' (10-15 min)..."
+echo "Installation de GitLab (chart $CHART_VERSION) dans le namespace '$NAMESPACE_GITLAB' (10-15 min)..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BONUS_DIR="$(dirname "$SCRIPT_DIR")"
 
 helm upgrade --install gitlab gitlab/gitlab \
+    --version "$CHART_VERSION" \
     --namespace $NAMESPACE_GITLAB \
     --create-namespace \
     -f "$BONUS_DIR/confs/gitlab-values.yaml" \
