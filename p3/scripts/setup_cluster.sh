@@ -6,6 +6,22 @@ CLUSTER_NAME="iot-cluster"
 NAMESPACE_ARGOCD="argocd"
 NAMESPACE_DEV="dev"
 
+# Version d'Argo CD EPINGLEE. "stable" suit la derniere version publiee et a
+# deja casse ce script : entre la v3.0.0 et la v3.5.1, le CRD applicationsets
+# est passe de 258 839 a 343 248 octets.
+#
+# --server-side est obligatoire au-dela de 262 144 octets : un `kubectl apply`
+# classique recopie le manifeste dans l'annotation
+# kubectl.kubernetes.io/last-applied-configuration, plafonnee a cette taille,
+# et l'API server refuse avec "metadata.annotations: Too long".
+# En server-side apply, c'est l'API server qui suit les champs via
+# metadata.managedFields : plus d'annotation, plus de plafond.
+#
+# Pas de --force-conflicts : le cluster est detruit puis recree juste au-dessus,
+# aucun gestionnaire de champs anterieur n'existe donc. Ce drapeau ne ferait que
+# masquer un futur conflit reel.
+ARGOCD_VERSION="v3.5.1"
+
 echo "=== Configuration du cluster K3d - P3 ==="
 
 if ! docker ps >/dev/null 2>&1; then
@@ -37,7 +53,8 @@ kubectl create namespace $NAMESPACE_ARGOCD --dry-run=client -o yaml | kubectl ap
 kubectl create namespace $NAMESPACE_DEV --dry-run=client -o yaml | kubectl apply -f -
 
 echo "Installation d'Argo CD..."
-kubectl apply -n $NAMESPACE_ARGOCD -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply --server-side -n $NAMESPACE_ARGOCD \
+    -f "https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/install.yaml"
 
 # rollout status attend la ressource elle-meme : pas de course avec la creation
 # des pods (contrairement a kubectl wait sur un selecteur de pods).
