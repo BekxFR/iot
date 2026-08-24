@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# Ubuntu 26.04 LTS : derniere version stable de la distribution (exigence du sujet).
+# Debian 13 (trixie) : derniere version stable de la distribution (exigence du sujet).
 BOX         = "bento/debian-13"
 
 SERVER_NAME = "chillionS"
@@ -12,11 +12,13 @@ WORKER_IP   = "192.168.56.111"
 Vagrant.configure("2") do |config|
   config.vm.box = BOX
   config.vm.box_version = "202510.26.0"
+  config.vm.boot_timeout = 900
 
   # Ressources minimales imposees par le sujet : 1 CPU, 512 Mo (ou 1024).
   config.vm.provider "virtualbox" do |vb|
     vb.memory = 1024
     vb.cpus   = 1
+    vb.customize ["setextradata", :id, "VBoxInternal/TM/TSCModeSwitchAllowed", "0"]
   end
 
   # Machine 1 : K3s en mode controller (server)
