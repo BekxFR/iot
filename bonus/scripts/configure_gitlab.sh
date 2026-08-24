@@ -32,10 +32,27 @@ fi
 echo "[OK] Mot de passe root recupere"
 
 # 2. Port-forward vers GitLab
+#
+# Un port-forward laisse par un lancement interrompu tient toujours le port et
+# pointe sur un pod detruit. kubectl s'executant en arriere-plan, son echec
+# ("unable to listen on port") passe inapercu : curl interroge alors le tunnel
+# mort et l'attente de l'API tourne dix minutes avant d'abandonner. On libere
+# donc le port avant, et on verifie que le nouveau tunnel a bien pris.
 echo "Demarrage du port-forward vers GitLab (port $LOCAL_PORT)..."
+for pid in $(pgrep -f "port-forward.*${LOCAL_PORT}:8181" 2>/dev/null); do
+    echo "  Port-forward orphelin sur le port $LOCAL_PORT (PID $pid) : arret"
+    kill "$pid" 2>/dev/null || true
+done
+
 kubectl port-forward svc/gitlab-webservice-default -n $NAMESPACE_GITLAB $LOCAL_PORT:8181 &
 PF_PID=$!
 sleep 5
+
+if ! kill -0 "$PF_PID" 2>/dev/null; then
+    echo "[FAIL] Le port-forward ne s'est pas etabli."
+    echo "       Le port $LOCAL_PORT est probablement occupe : ss -ltnp | grep $LOCAL_PORT"
+    exit 1
+fi
 
 # Fonction de nettoyage
 # WORKDIR (et non TMPDIR, variable d'environnement standard) : un exit avant
