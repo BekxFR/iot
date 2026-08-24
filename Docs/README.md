@@ -74,6 +74,12 @@ Plusieurs VM peuvent cohabiter dans le meme dossier, distinguees par `--name`.
 Sans verbe, le mode est deduit : `create` si le disque n'existe pas, `run`
 sinon, et le mode retenu est affiche avant le lancement.
 
+**Ou le disque est ecrit** : dans `--dir` s'il est fourni, sinon a cote de
+l'image ISO en mode `create`, sinon dans le dossier courant. Jamais dans le
+HOME : a 42 il est sur un quota reduit, et un disque de VM le saturerait en
+pleine installation. Le dossier retenu est affiche au demarrage, et le script
+avertit s'il reste moins de 25 Gio.
+
 Il verifie les prerequis (KVM, acces a `/dev/kvm`, virtualisation imbriquee),
 dimensionne la VM sur la RAM reelle du poste, et redirige les ports utiles au
 projet : 2222 (SSH), 8888 et 8443 (ingress Traefik), 8080 (Argo CD) et 30080

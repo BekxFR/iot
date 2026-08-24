@@ -20,7 +20,7 @@ set -euo pipefail
 
 ### ---------- Valeurs par defaut ----------
 VM_NAME="${VM_NAME:-iot-vm}"
-OUT_DIR="${OUT_DIR:-$HOME/QEMU}"
+OUT_DIR="${OUT_DIR:-}"           # vide = deduit plus bas (voir resolution)
 DISK_GB="${DISK_GB:-100}"        # p1+p2 (2 VM imbriquees) + p3 (k3d) + bonus (images GitLab)
 FIRMWARE="${FIRMWARE:-bios}"     # "bios" ou "uefi"
 GL="${GL:-off}"                  # "on" = OpenGL dans la fenetre GTK
@@ -52,7 +52,9 @@ MODES
 OPTIONS
   --iso FICHIER    image d'installation (obligatoire pour create)
   --name NOM       nom de la VM            (defaut: $VM_NAME)
-  --dir CHEMIN     dossier des disques     (defaut: $OUT_DIR)
+  --dir CHEMIN     dossier des disques. A defaut : le dossier de l'ISO en mode
+                   create, le dossier courant sinon. Jamais le HOME, qui est
+                   souvent trop petit pour un disque de VM.
   --disk-gb N      taille du disque en Gio (defaut: $DISK_GB, create seulement)
   --ram-mb N       RAM en Mo               (defaut: 70% de la RAM hote)
   --cpus N         vCPU                    (defaut: nproc-2, plafonne a 8)
@@ -89,6 +91,23 @@ while [[ $# -gt 0 ]]; do
     *) err "Option inconnue : $1  (voir --help)" ;;
   esac
 done
+
+# ---------- Ou poser le disque ----------
+# Un disque de VM pese des dizaines de Gio : le placer dans le HOME par defaut
+# est un piege, ce dernier etant souvent sur un quota reduit ou sur du reseau.
+# Ordre retenu : --dir explicite, sinon le dossier de l'ISO, sinon le dossier
+# courant. Le disque atterrit ainsi la ou l'utilisateur travaille deja.
+if [[ -z "$OUT_DIR" ]]; then
+  if [[ -n "$ISO" && -f "$ISO" ]]; then
+    OUT_DIR=$(cd -- "$(dirname -- "$ISO")" && pwd)
+    OUT_DIR_ORIGIN="dossier de l'ISO"
+  else
+    OUT_DIR="$PWD"
+    OUT_DIR_ORIGIN="dossier courant"
+  fi
+else
+  OUT_DIR_ORIGIN="--dir"
+fi
 
 QCOW2_PATH="${OUT_DIR}/${VM_NAME}.qcow2"
 OVMF_VARS_PATH="${OUT_DIR}/${VM_NAME}_VARS.fd"
@@ -144,6 +163,8 @@ disk_has_system() {
   sig=$(qemu-io -r -f qcow2 -c 'read -v 510 2' "$1" 2>/dev/null | awk 'NR==1{print $2$3}')
   [[ "$sig" == "55aa" ]]
 }
+
+log "Dossier des disques : ${OUT_DIR}  (${OUT_DIR_ORIGIN})"
 
 if [[ "$MODE" == "list" ]]; then
   [[ -d "$OUT_DIR" ]] || { echo "Dossier inexistant : $OUT_DIR"; exit 0; }
@@ -255,8 +276,18 @@ case "$MODE" in
      Pour l'ecraser      : ajouter --force (DESTRUCTIF)"
       fi
     fi
+    # Le qcow2 est creux : il ne prend que quelques Kio au depart, mais grossit
+    # au fil de l'installation puis du projet. Compter ~25 Gio pour le systeme,
+    # Docker, les images k3d et les VM imbriquees de p1 et p2.
     FREE_MB=$(df -Pm "$OUT_DIR" | awk 'NR==2{print $4}')
-    (( FREE_MB >= 20480 )) || warn "Seulement ${FREE_MB} Mo libres : le disque grossira a l'usage."
+    MOUNT=$(df -P "$OUT_DIR" | awk 'NR==2{print $6}')
+    if (( FREE_MB < 25600 )); then
+      warn "Seulement $(( FREE_MB / 1024 )) Gio libres sur ${MOUNT}."
+      warn "Le disque est creux au depart mais grossira : prevoir 25 Gio minimum,"
+      warn "davantage pour le bonus. Choisir un autre dossier avec --dir si besoin."
+    else
+      ok "Espace disponible : $(( FREE_MB / 1024 )) Gio sur ${MOUNT}."
+    fi
     log "Creation du disque (${DISK_GB} Gio, alloue a la demande)..."
     qemu-img create -f qcow2 "$QCOW2_PATH" "${DISK_GB}G" >/dev/null
     ok "Disque cree : $QCOW2_PATH"
